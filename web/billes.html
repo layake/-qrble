@@ -183,7 +183,7 @@
 
   var TERRAINS = {
     tarmac: { friction: 0.5, damp: 0.42, jitter: 0.09, cell: 0 },
-    plate: { friction: 0.22, damp: 0.26, jitter: 0, cell: 1.5 }
+    plate: { friction: 0.22, damp: 0.26, jitter: 0, cell: 1.5, dish: 2.2 }
   };
 
   var state = {
@@ -287,7 +287,33 @@
     return makeTexture(c);
   }
 
+  function plateBumpTexture() {
+    var n = 1024;
+    var cells = 8;
+    var cs = n / cells;
+    var c = document.createElement('canvas');
+    c.width = c.height = n;
+    var g = c.getContext('2d');
+    g.fillStyle = '#d0d0d0';
+    g.fillRect(0, 0, n, n);
+    for (var i = 0; i < cells; i++) {
+      for (var j = 0; j < cells; j++) {
+        var cx = i * cs + cs / 2;
+        var cy = j * cs + cs / 2;
+        var grad = g.createRadialGradient(cx, cy, cs * 0.05, cx, cy, cs * 0.55);
+        grad.addColorStop(0, '#303030');
+        grad.addColorStop(1, '#8c8c8c');
+        g.fillStyle = grad;
+        g.fillRect(i * cs + 8, j * cs + 8, cs - 16, cs - 16);
+      }
+    }
+    var t = new THREE.CanvasTexture(c);
+    t.anisotropy = 4;
+    return t;
+  }
+
   var textures = { tarmac: tarmacTexture(), plate: plateTexture() };
+  var plateBump = plateBumpTexture();
 
   var groundMat = new THREE.MeshStandardMaterial({ map: textures.tarmac, roughness: 0.95, metalness: 0 });
   var groundMesh = new THREE.Mesh(new THREE.PlaneGeometry(HALF * 2, HALF * 2), groundMat);
@@ -390,7 +416,25 @@
       m.cell = null;
     });
     groundMat.map = textures[state.terrain];
+    groundMat.bumpMap = state.terrain === 'plate' ? plateBump : null;
+    groundMat.bumpScale = 2.5;
     groundMat.needsUpdate = true;
+  }
+
+  /* Chaque ligne en relief dévie la bille d'un angle fixe (toujours le même au même endroit) plus un petit aléa. */
+  function ridgeHash(ix, iz, axis) {
+    var s = Math.sin(ix * 12.9898 + iz * 78.233 + axis * 37.719) * 43758.5453;
+    return (s - Math.floor(s)) * 2 - 1;
+  }
+
+  function ridgeKick(v, ix, iz, axis) {
+    var a = ridgeHash(ix, iz, axis) * 0.16 + (Math.random() - 0.5) * 0.05;
+    var c = Math.cos(a);
+    var s = Math.sin(a);
+    var nx = v.x * c - v.z * s;
+    var nz = v.x * s + v.z * c;
+    v.x = nx * 0.88;
+    v.z = nz * 0.88;
   }
 
   function terrainEffects(m) {
@@ -408,17 +452,16 @@
       v.z += (Math.random() - 0.5) * k;
     }
     if (t.cell) {
-      var key = Math.floor((m.body.position.x + HALF) / t.cell) + ',' + Math.floor((m.body.position.z + HALF) / t.cell);
-      if (m.cell !== null && m.cell !== key && speed > 1) {
-        var a = (Math.random() - 0.5) * 0.12;
-        var c = Math.cos(a);
-        var s = Math.sin(a);
-        var nx = v.x * c - v.z * s;
-        var nz = v.x * s + v.z * c;
-        v.x = nx * 0.985;
-        v.z = nz * 0.985;
+      var cx = Math.floor((m.body.position.x + HALF) / t.cell);
+      var cz = Math.floor((m.body.position.z + HALF) / t.cell);
+      if (m.cell !== null) {
+        if (cx !== m.cell.x) ridgeKick(v, Math.max(cx, m.cell.x), cz, 1);
+        if (cz !== m.cell.z) ridgeKick(v, cx, Math.max(cz, m.cell.z), 2);
       }
-      m.cell = key;
+      m.cell = { x: cx, z: cz };
+      /* Case creusée : la bille est rappelée vers le centre, une bille lente ne passe pas la ligne. */
+      v.x -= (m.body.position.x + HALF - (cx + 0.5) * t.cell) * t.dish * STEP;
+      v.z -= (m.body.position.z + HALF - (cz + 0.5) * t.cell) * t.dish * STEP;
     }
   }
 
