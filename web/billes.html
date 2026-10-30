@@ -4,40 +4,35 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=Figtree:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
-  /* Mise en page : titre et réglages en haut, terrain 3D au centre, compteurs de billes dessous. */
+  /* Mise en page : titre et onglets (Jouer, Sac, Boîte), terrain 3D, puis réglages et salle en ligne. */
   :root {
     --bg: #e3e7eb;
     --ink: #1b232b;
     --muted: #55616d;
     --panel: #f2f4f6;
     --line: #c2cad2;
-    --red: #d6402b;
-    --blue: #2e63d8;
+    --accent: #d6402b;
     --stage: #262c33;
     --focus: #2e63d8;
+    --r-common: #6b7785;
+    --r-uncommon: #23864b;
+    --r-rare: #2f5fd0;
+    --r-legend: #a8740a;
     --font-display: 'Bagel Fat One', 'Arial Rounded MT Bold', system-ui, sans-serif;
     --font-body: 'Figtree', system-ui, -apple-system, 'Segoe UI', sans-serif;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      --bg: #12161b;
-      --ink: #e6ebef;
-      --muted: #9aa6b2;
-      --panel: #1b2128;
-      --line: #2c353f;
-      --stage: #1a1f25;
-      --focus: #7fa2f2;
+      --bg: #12161b; --ink: #e6ebef; --muted: #9aa6b2; --panel: #1b2128; --line: #2c353f;
+      --stage: #1a1f25; --focus: #7fa2f2; --accent: #e5553f;
+      --r-common: #9aa6b2; --r-uncommon: #4cc47e; --r-rare: #7fa2f2; --r-legend: #e6b445;
       color-scheme: dark;
     }
   }
   :root[data-theme="dark"] {
-    --bg: #12161b;
-    --ink: #e6ebef;
-    --muted: #9aa6b2;
-    --panel: #1b2128;
-    --line: #2c353f;
-    --stage: #1a1f25;
-    --focus: #7fa2f2;
+    --bg: #12161b; --ink: #e6ebef; --muted: #9aa6b2; --panel: #1b2128; --line: #2c353f;
+    --stage: #1a1f25; --focus: #7fa2f2; --accent: #e5553f;
+    --r-common: #9aa6b2; --r-uncommon: #4cc47e; --r-rare: #7fa2f2; --r-legend: #e6b445;
     color-scheme: dark;
   }
 
@@ -52,207 +47,488 @@
   .app { max-width: 760px; margin: 0 auto; display: grid; gap: 14px; }
   header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; }
   h1 { font: 400 clamp(1.8rem, 6vw, 2.4rem)/1 var(--font-display); margin: 0; letter-spacing: 0.01em; }
-  .controls { display: flex; flex-wrap: wrap; gap: 8px; }
-  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--panel); }
-  .seg button {
-    font: 600 14px/1 var(--font-body);
-    color: var(--ink);
-    background: transparent;
-    border: 0;
-    padding: 11px 14px;
-    min-height: 40px;
-    cursor: pointer;
-  }
-  .seg button + button { border-left: 1px solid var(--line); }
-  .seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+  h2 { font: 400 1.3rem/1.1 var(--font-display); margin: 0; }
+  p { margin: 0; }
+  button { font: inherit; color: inherit; }
   button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 
+  .tabs, .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--panel); }
+  .tabs button, .seg button {
+    font: 600 14px/1 var(--font-body);
+    background: transparent; border: 0; padding: 11px 14px; min-height: 42px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .tabs button + button, .seg button + button { border-left: 1px solid var(--line); }
+  .tabs button[aria-current="true"], .seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+  .num { font-variant-numeric: tabular-nums; color: inherit; opacity: 0.75; }
+
+  .view { display: grid; gap: 14px; }
   .stage {
-    position: relative;
-    height: min(68vh, 118vw);
-    min-height: 360px;
-    background: var(--stage);
-    border-radius: 14px;
-    overflow: hidden;
-    touch-action: none;
-    user-select: none;
-    -webkit-user-select: none;
+    position: relative; height: min(64vh, 112vw); min-height: 340px;
+    background: var(--stage); border-radius: 14px; overflow: hidden;
+    touch-action: none; user-select: none; -webkit-user-select: none;
   }
   .stage canvas { display: block; width: 100%; height: 100%; touch-action: none; }
   .banner {
-    position: absolute;
-    left: 12px;
-    right: 12px;
-    bottom: 12px;
-    background: var(--panel);
-    color: var(--ink);
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    padding: 14px 16px;
-    display: grid;
-    gap: 8px;
-    justify-items: start;
+    position: absolute; left: 12px; right: 12px; bottom: 12px;
+    background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 12px;
+    padding: 14px 16px; display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; align-items: center;
   }
-  .banner-title { margin: 0; font: 400 1.35rem/1.1 var(--font-display); text-wrap: balance; }
-  .banner-sub { margin: 0; color: var(--muted); font-size: 0.95rem; }
+  .banner .thumb { grid-row: span 3; }
+  .banner-title { font: 400 1.2rem/1.15 var(--font-display); text-wrap: balance; }
+  .banner-sub { color: var(--muted); font-size: 0.95rem; }
+  .banner button { justify-self: start; }
+
   .primary {
-    font: 700 15px/1 var(--font-body);
-    color: #fff;
-    background: var(--red);
-    border: 0;
-    border-radius: 10px;
-    padding: 13px 18px;
-    min-height: 44px;
-    cursor: pointer;
+    font: 700 15px/1 var(--font-body); color: #fff; background: var(--accent);
+    border: 0; border-radius: 10px; padding: 13px 18px; min-height: 44px; cursor: pointer;
+  }
+  .primary:disabled, .ghost:disabled { opacity: 0.45; cursor: not-allowed; }
+  .ghost {
+    font: 600 14px/1 var(--font-body); background: transparent; border: 1px solid var(--line);
+    border-radius: 10px; padding: 11px 14px; min-height: 42px; cursor: pointer;
   }
 
-  .status { margin: 0; font-weight: 600; min-height: 1.45em; }
-  .bags { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .bag {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    padding: 10px 14px;
-    min-width: 0;
+  .status { font-weight: 600; min-height: 1.45em; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; display: grid; gap: 12px; min-width: 0; }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+  .label { color: var(--muted); font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; min-width: 6.5em; }
+  .stake-pick {
+    display: flex; align-items: center; gap: 10px; text-align: left; cursor: pointer;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; min-height: 44px; min-width: 0;
   }
-  .swatch { flex: none; width: 30px; height: 30px; border-radius: 50%; }
-  .swatch.red { background: radial-gradient(circle at 35% 30%, #ffb3a3, var(--red) 55%, #7e1e12); }
-  .swatch.blue { background: radial-gradient(circle at 35% 30%, #b3c8ff, var(--blue) 55%, #173a86); }
-  .bag-text { display: grid; min-width: 0; }
-  .who { color: var(--muted); font-size: 0.85rem; overflow-wrap: anywhere; }
-  .count { font: 400 1.6rem/1 var(--font-display); font-variant-numeric: tabular-nums; }
-  .help { margin: 0; color: var(--muted); font-size: 0.92rem; max-width: 65ch; }
+  .stake-text { display: grid; min-width: 0; }
+  .note { color: var(--muted); font-size: 0.92rem; max-width: 65ch; }
+
+  .peers { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .peer { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .peer img { width: 32px; height: 32px; border-radius: 50%; flex: none; }
+  .peer-name { flex: 1; min-width: 0; overflow-wrap: anywhere; font-weight: 600; }
+  .peer-state { color: var(--muted); font-size: 0.85rem; }
+  .incoming { border: 2px solid var(--accent); border-radius: 12px; padding: 12px; display: grid; gap: 10px; }
+  .picks { display: flex; flex-wrap: wrap; gap: 8px; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 10px; }
+  .card {
+    display: grid; justify-items: center; gap: 4px; padding: 10px 8px 9px; text-align: center;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px; cursor: pointer; min-width: 0;
+  }
+  .card[aria-pressed="true"] { border-color: var(--ink); box-shadow: inset 0 0 0 2px var(--ink); }
+  .card.r-legend { border-color: var(--r-legend); }
+  .card-name { font-weight: 600; font-size: 0.9rem; line-height: 1.2; overflow-wrap: anywhere; }
+  .chip { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; }
+  .chip.r-common { color: var(--r-common); }
+  .chip.r-uncommon { color: var(--r-uncommon); }
+  .chip.r-rare { color: var(--r-rare); }
+  .chip.r-legend { color: var(--r-legend); }
+  .rates { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 6px 14px; font-size: 0.92rem; }
+  .rates span { font-variant-numeric: tabular-nums; }
+  .reveal .card { animation: pop 0.55s cubic-bezier(0.2, 0.9, 0.3, 1.25) both; }
+  @keyframes pop { from { opacity: 0; transform: scale(0.6) rotate(-8deg); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .reveal .card { animation: none; } }
 </style>
 
 <div class="app">
   <header>
     <h1>Billes</h1>
-    <div class="controls">
-      <div class="seg" role="group" aria-label="Mode de jeu">
-        <button type="button" data-mode="solo" aria-pressed="true">Solo</button>
-        <button type="button" data-mode="duo" aria-pressed="false">2 joueurs</button>
-      </div>
-      <div class="seg" role="group" aria-label="Terrain">
-        <button type="button" data-terrain="tarmac" aria-pressed="true">Goudron</button>
-        <button type="button" data-terrain="plate" aria-pressed="false">Plaque d'égout</button>
-      </div>
-    </div>
+    <nav class="tabs" aria-label="Sections">
+      <button type="button" data-view="play" aria-current="true">Jouer</button>
+      <button type="button" data-view="bag" aria-current="false">Sac <span class="num" id="bagCount">0</span></button>
+      <button type="button" data-view="pack" aria-current="false">Boîte <span class="dot" id="packDot" hidden></span></button>
+    </nav>
   </header>
 
-  <div class="stage" id="stage">
-    <canvas id="gl" aria-label="Terrain de billes en 3D"></canvas>
-    <div class="banner" id="banner" hidden>
-      <p class="banner-title" id="bannerTitle"></p>
-      <p class="banner-sub" id="bannerSub"></p>
-      <button type="button" class="primary" id="nextBtn">Manche suivante</button>
+  <section class="view" id="view-play">
+    <div class="stage" id="stage">
+      <canvas id="gl" aria-label="Terrain de billes en 3D"></canvas>
+      <div class="banner" id="banner" hidden>
+        <span class="thumb" id="bannerThumb"></span>
+        <p class="banner-title" id="bannerTitle"></p>
+        <p class="banner-sub" id="bannerSub"></p>
+        <button type="button" class="primary" id="bannerBtn">Continuer</button>
+      </div>
     </div>
-  </div>
+    <p class="status" id="status" aria-live="polite"></p>
 
-  <p class="status" id="status" aria-live="polite"></p>
-
-  <div class="bags">
-    <div class="bag">
-      <span class="swatch red"></span>
-      <span class="bag-text"><span class="count" id="countRed">3</span><span class="who" id="whoRed">Toi</span></span>
+    <div class="panel" id="setup">
+      <div class="row">
+        <span class="label">Ta bille</span>
+        <button type="button" class="stake-pick" id="stakeBtn"></button>
+      </div>
+      <div class="row">
+        <span class="label">Terrain</span>
+        <div class="seg" role="group" aria-label="Terrain">
+          <button type="button" data-terrain="tarmac" aria-pressed="true">Goudron</button>
+          <button type="button" data-terrain="plate" aria-pressed="false">Plaque d'égout</button>
+        </div>
+      </div>
+      <div class="row">
+        <button type="button" class="primary" id="botBtn">Jouer contre l'ordi</button>
+      </div>
+      <p class="note">On mise toujours une bille de la même rareté des deux côtés. Pour gagner une bille rare, il faut risquer une bille rare.</p>
     </div>
-    <div class="bag">
-      <span class="swatch blue"></span>
-      <span class="bag-text"><span class="count" id="countBlue">3</span><span class="who" id="whoBlue">Adversaire</span></span>
-    </div>
-  </div>
 
-  <p class="help">Fais glisser le doigt vers l'arrière comme un élastique, puis relâche. Touche la bille de l'autre pour la gagner, sinon tu perds la tienne. Les murs rebondissent et le terrain change la trajectoire.</p>
+    <div class="panel" id="lobby">
+      <h2>En ligne</h2>
+      <div id="incoming" hidden></div>
+      <p class="note" id="lobbyNote">Connexion à la salle...</p>
+      <ul class="peers" id="peerList"></ul>
+    </div>
+  </section>
+
+  <section class="view" id="view-bag" hidden>
+    <h2>Mon sac</h2>
+    <p class="note">Touche une bille pour la choisir comme bille de jeu.</p>
+    <div class="grid" id="bagGrid"></div>
+  </section>
+
+  <section class="view" id="view-pack" hidden>
+    <h2>Boîte de billes</h2>
+    <p class="note" id="packInfo"></p>
+    <div class="row"><button type="button" class="primary" id="openPackBtn">Ouvrir la boîte</button></div>
+    <div class="grid reveal" id="packReveal"></div>
+    <div class="panel">
+      <span class="label">Chances par bille</span>
+      <div class="rates" id="rates"></div>
+    </div>
+  </section>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"></script>
 <script>
 (function () {
-  var R = 0.32;
-  var HALF = 6;
-  var WALL_T = 0.6;
-  var WALL_H = 1.0;
-  var STEP = 1 / 120;
-  var V_MAX = 10;
-  var MAX_PULL = 5;
-  var START_STOCK = 3;
-  var NAMES = ['Rouge', 'Bleu'];
+  'use strict';
 
-  var TERRAINS = {
-    tarmac: { friction: 0.5, damp: 0.42, jitter: 0.09, cell: 0 },
-    plate: { friction: 0.22, damp: 0.26, jitter: 0, cell: 1.5, dish: 2.2 }
+  /* ================= Réglages ================= */
+  const R = 0.32;
+  const HALF = 6;
+  const WALL_T = 0.6;
+  const WALL_H = 1.0;
+  const STEP = 1 / 120;
+  const V_MAX = 10;
+  const MAX_PULL = 5;
+  const TRACK_EVERY = 1 / 15;
+  const NET_TIMEOUT_MS = 20000;
+  /* Cases de la plaque : 1,5 de côté, lignes de 0,2 de large, fond enfoncé de 0,15 (environ la moitié du rayon de la bille). */
+  const PLATE = { cell: 1.5, ridge: 0.2, depth: 0.15 };
+  const PACK_SIZE = 3;
+  const PACK_INTERVAL = 4 * 3600 * 1000;
+  const LS_KEY = 'billes.bag.v1';
+
+  const TERRAINS = {
+    tarmac: { friction: 0.5, damp: 0.42, jitter: 0.09 },
+    plate: { friction: 0.3, damp: 0.22, jitter: 0 }
   };
 
-  var state = {
-    mode: 'solo',
-    terrain: 'tarmac',
-    turn: 0,
-    starter: 0,
-    phase: 'aim',
-    stock: [START_STOCK, START_STOCK],
-    rollTime: 0
+  const RARITIES = {
+    common: { name: 'Commune', weight: 68, rank: 0 },
+    uncommon: { name: 'Peu commune', weight: 22, rank: 1 },
+    rare: { name: 'Rare', weight: 8, rank: 2 },
+    legend: { name: 'Légendaire', weight: 2, rank: 3 }
   };
 
-  var stageEl = document.getElementById('stage');
-  var canvas = document.getElementById('gl');
-  var bannerEl = document.getElementById('banner');
-  var bannerTitle = document.getElementById('bannerTitle');
-  var bannerSub = document.getElementById('bannerSub');
-  var nextBtn = document.getElementById('nextBtn');
-  var statusEl = document.getElementById('status');
-  var countRed = document.getElementById('countRed');
-  var countBlue = document.getElementById('countBlue');
-  var whoRed = document.getElementById('whoRed');
-  var whoBlue = document.getElementById('whoBlue');
+  const CATALOG = {
+    opaque: { name: 'Unie', rarity: 'common' },
+    cateye: { name: 'Œil de chat', rarity: 'common' },
+    milky: { name: 'Laiteuse', rarity: 'common' },
+    swirl: { name: 'Tourbillon', rarity: 'uncommon' },
+    tornado: { name: 'Tornade', rarity: 'uncommon' },
+    mica: { name: 'Mica', rarity: 'uncommon' },
+    agate: { name: 'Agate', rarity: 'rare' },
+    oxblood: { name: 'Sang de bœuf', rarity: 'rare' },
+    pearl: { name: 'Nacrée', rarity: 'rare' },
+    sulphide: { name: 'Sulfure', rarity: 'legend' },
+    onion: { name: "Pelure d'oignon", rarity: 'legend' },
+    lutz: { name: 'Lutz', rarity: 'legend' }
+  };
+  const TYPES = Object.keys(CATALOG);
 
-  /* ---------- Rendu ---------- */
-  var renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
+  /* ================= Utilitaires ================= */
+  const $ = (id) => document.getElementById(id);
+  const rarityOf = (def) => CATALOG[def.type].rarity;
+
+  function rng(seed) {
+    let a = seed >>> 0;
+    return function () {
+      a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function randId(n) {
+    const abc = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    let s = '';
+    for (let i = 0; i < n; i++) s += abc[Math.floor(Math.random() * abc.length)];
+    return s;
+  }
+
+  function makeDef(type) {
+    return { uid: randId(12), type: type, hue: Math.floor(Math.random() * 360), seed: Math.floor(Math.random() * 1e9) + 1 };
+  }
+
+  const typesOf = (rarity) => TYPES.filter((t) => CATALOG[t].rarity === rarity);
+  const pick = (list) => list[Math.floor(Math.random() * list.length)];
+
+  function rollRarity() {
+    const n = Math.random() * 100;
+    let acc = 0;
+    for (const id of Object.keys(RARITIES)) {
+      acc += RARITIES[id].weight;
+      if (n < acc) return id;
+    }
+    return 'common';
+  }
+
+  const rollMarble = () => makeDef(pick(typesOf(rollRarity())));
+
+  function sanitizeDef(d) {
+    if (!d || typeof d !== 'object' || !Object.prototype.hasOwnProperty.call(CATALOG, d.type)) return null;
+    const hue = ((Math.floor(Number(d.hue)) || 0) % 360 + 360) % 360;
+    const seed = Math.floor(Math.abs(Number(d.seed))) || 1;
+    const uid = typeof d.uid === 'string' && /^[a-z0-9]{4,24}$/.test(d.uid) ? d.uid : randId(12);
+    return { uid: uid, type: d.type, hue: hue, seed: seed };
+  }
+
+  const pub = (def) => ({ uid: def.uid, type: def.type, hue: def.hue, seed: def.seed });
+  const hsl = (h, s, l, a) => 'hsla(' + h + ',' + s + '%,' + l + '%,' + (a === undefined ? 1 : a) + ')';
+
+  function hsl2rgb(h, s, l) {
+    s /= 100; l /= 100;
+    const k = (n) => (n + h / 30) % 12;
+    const a = s * Math.min(l, 1 - l);
+    const f = (n) => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+    return [Math.round(f(0) * 255), Math.round(f(8) * 255), Math.round(f(4) * 255)];
+  }
+
+  function formatWait(ms) {
+    const s = Math.max(0, Math.ceil(ms / 1000));
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    const pad = (v) => String(v).padStart(2, '0');
+    return (h ? h + ' h ' : '') + pad(m) + ' min ' + pad(sec) + ' s';
+  }
+
+  /* ================= Motifs des billes ================= */
+  /* Chaque motif est peint sur une texture équirectangulaire 256 x 128, à partir d'une graine : la même bille a toujours le même dessin. */
+  function glass(g, h, s, l) {
+    const gr = g.createLinearGradient(0, 0, 0, 128);
+    gr.addColorStop(0, hsl(h, s, Math.min(l + 6, 98)));
+    gr.addColorStop(0.5, hsl(h, s, l));
+    gr.addColorStop(1, hsl(h, s, l - 10));
+    g.fillStyle = gr;
+    g.fillRect(0, 0, 256, 128);
+  }
+
+  function leaf(g, u, w) {
+    g.beginPath();
+    g.moveTo(u, 0);
+    g.quadraticCurveTo(u + w, 64, u, 128);
+    g.quadraticCurveTo(u - w, 64, u, 0);
+    g.fill();
+  }
+
+  function wave(g, r, color, width, n) {
+    const ph = r() * Math.PI * 2;
+    const base = 14 + r() * 100;
+    const amp = 8 + r() * 18;
+    g.strokeStyle = color;
+    g.lineWidth = width;
+    g.lineCap = 'round';
+    g.beginPath();
+    for (let x = 0; x <= 256; x += 8) {
+      const y = base + amp * Math.sin((x / 256) * Math.PI * 2 * n + ph);
+      if (x === 0) g.moveTo(x, y); else g.lineTo(x, y);
+    }
+    g.stroke();
+  }
+
+  function blob(g, x, y, rad, color) {
+    for (const dx of [-256, 0, 256]) {
+      const gr = g.createRadialGradient(x + dx, y, 0, x + dx, y, rad);
+      gr.addColorStop(0, color);
+      gr.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = gr;
+      g.fillRect(x + dx - rad, y - rad, rad * 2, rad * 2);
+    }
+  }
+
+  function figurine(g, u) {
+    g.fillStyle = 'rgba(248,248,248,0.96)';
+    g.beginPath(); g.ellipse(u, 74, 15, 10, 0, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.arc(u + 13, 58, 8, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.moveTo(u + 9, 52); g.lineTo(u + 12, 42); g.lineTo(u + 16, 51); g.fill();
+    g.fillRect(u - 12, 80, 4, 12);
+    g.fillRect(u + 7, 80, 4, 12);
+    g.beginPath(); g.moveTo(u - 14, 70); g.quadraticCurveTo(u - 26, 60, u - 22, 52); g.lineWidth = 3; g.strokeStyle = 'rgba(248,248,248,0.96)'; g.stroke();
+  }
+
+  const PAINTERS = {
+    opaque(g, r, h) {
+      g.fillStyle = hsl(h, 62, 48); g.fillRect(0, 0, 256, 128);
+      for (let i = 0; i < 8; i++) blob(g, r() * 256, r() * 128, 18 + r() * 30, hsl(h + r() * 20 - 10, 70, 40 + r() * 25, 0.35));
+    },
+    cateye(g, r, h) {
+      glass(g, h, 25, 86);
+      const n = 3 + Math.floor(r() * 2);
+      for (const u of [64, 192]) {
+        for (let i = 0; i < n; i++) {
+          g.fillStyle = hsl(h + i * 35, 80, 40 + r() * 15, 0.92);
+          leaf(g, u + (i - (n - 1) / 2) * 6, 6 + r() * 14);
+        }
+      }
+    },
+    milky(g, r, h) {
+      g.fillStyle = hsl(h, 18, 93); g.fillRect(0, 0, 256, 128);
+      for (let i = 0; i < 10; i++) blob(g, r() * 256, r() * 128, 20 + r() * 26, hsl(h + r() * 40 - 20, 55, 70, 0.5));
+    },
+    swirl(g, r, h) {
+      glass(g, h, 30, 88);
+      for (let i = 0; i < 6; i++) wave(g, r, hsl(h + (i % 3) * 55, 75, 42 + r() * 12, 0.9), 6 + r() * 10, 1 + Math.floor(r() * 2));
+    },
+    tornado(g, r, h) {
+      glass(g, h, 35, 86);
+      g.lineWidth = 9;
+      for (let k = 0; k < 8; k++) {
+        g.strokeStyle = k % 2 ? hsl(h, 80, 45) : hsl(h + 180, 70, 55);
+        const off = k * 16 + r() * 4;
+        for (const s of [-128, 0, 128]) {
+          g.beginPath(); g.moveTo(0, off + s); g.lineTo(256, off + s + 128); g.stroke();
+        }
+      }
+    },
+    mica(g, r, h) {
+      g.fillStyle = hsl(h, 70, 30); g.fillRect(0, 0, 256, 128);
+      for (let i = 0; i < 520; i++) {
+        g.fillStyle = 'rgba(255,255,255,' + (0.3 + r() * 0.7).toFixed(2) + ')';
+        const s = 0.6 + r() * 1.2;
+        g.fillRect(r() * 256, r() * 128, s, s);
+      }
+    },
+    agate(g, r, h) {
+      const img = g.createImageData(256, 128);
+      const pal = [hsl2rgb(22, 55, 28), hsl2rgb(h, 55, 55), hsl2rgb(40, 40, 86), hsl2rgb(18, 50, 44), hsl2rgb(30, 60, 62)];
+      const p1 = r() * 6.28;
+      const p2 = r() * 6.28;
+      const f = 0.22 + r() * 0.1;
+      for (let y = 0; y < 128; y++) {
+        for (let x = 0; x < 256; x++) {
+          const v = y * f + 3 * Math.sin((x / 256) * Math.PI * 4 + p1) + 2 * Math.sin((x / 256) * Math.PI * 6 + p2 + y * 0.05);
+          const c = pal[((Math.floor(v) % pal.length) + pal.length) % pal.length];
+          const i = (y * 256 + x) * 4;
+          img.data[i] = c[0]; img.data[i + 1] = c[1]; img.data[i + 2] = c[2]; img.data[i + 3] = 255;
+        }
+      }
+      g.putImageData(img, 0, 0);
+    },
+    oxblood(g, r, h) {
+      g.fillStyle = hsl(38, 35, 90); g.fillRect(0, 0, 256, 128);
+      for (let i = 0; i < 4; i++) wave(g, r, hsl(355, 72, 28, 0.85), 3 + r() * 5, 1 + Math.floor(r() * 2));
+      for (let i = 0; i < 2; i++) wave(g, r, hsl(h, 45, 45, 0.7), 2 + r() * 3, 2);
+    },
+    pearl(g, r, h) {
+      for (let x = 0; x < 256; x += 2) {
+        g.fillStyle = hsl(h + 50 * Math.sin((x / 256) * Math.PI * 4), 45, 84);
+        g.fillRect(x, 0, 2, 128);
+      }
+      for (let i = 0; i < 6; i++) blob(g, r() * 256, r() * 128, 30, 'rgba(255,255,255,0.35)');
+    },
+    sulphide(g, r, h) {
+      glass(g, 195 + (h % 40), 35, 88);
+      figurine(g, 64);
+      figurine(g, 192);
+    },
+    onion(g, r, h) {
+      g.fillStyle = hsl(h, 55, 60); g.fillRect(0, 0, 256, 128);
+      for (let i = 0; i < 46; i++) {
+        const x0 = r() * 256;
+        const ph = r() * 6.28;
+        g.strokeStyle = hsl(Math.floor(r() * 360), 80, 50, 0.85);
+        g.lineWidth = 2 + r() * 3;
+        for (const dx of [-256, 0, 256]) {
+          g.beginPath();
+          for (let y = 0; y <= 128; y += 8) {
+            const x = x0 + dx + 5 * Math.sin((y / 128) * Math.PI * 2 + ph);
+            if (y === 0) g.moveTo(x, y); else g.lineTo(x, y);
+          }
+          g.stroke();
+        }
+      }
+    },
+    lutz(g, r, h) {
+      g.fillStyle = hsl(h, 65, 22); g.fillRect(0, 0, 256, 128);
+      for (let b = 0; b < 3; b++) {
+        const base = 25 + b * 38 + r() * 10;
+        const n = 1 + Math.floor(r() * 2);
+        const ph = r() * 6.28;
+        for (let x = 0; x < 256; x += 1.5) {
+          const y = base + 14 * Math.sin((x / 256) * Math.PI * 2 * n + ph) + (r() - 0.5) * 6;
+          g.fillStyle = hsl(45, 90, 58 + r() * 20);
+          g.beginPath(); g.arc(x, y, 0.8 + r() * 0.9, 0, Math.PI * 2); g.fill();
+        }
+      }
+    }
+  };
+
+  /* ================= Rendu 3D ================= */
+  const stageEl = $('stage');
+  const canvas = $('gl');
+  const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.outputEncoding = THREE.sRGBEncoding;
   renderer.shadowMap.enabled = true;
 
-  var scene = new THREE.Scene();
-  var camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
-
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
   scene.add(new THREE.HemisphereLight(0xffffff, 0x555a60, 0.8));
-  var sun = new THREE.DirectionalLight(0xffffff, 0.85);
+  const sun = new THREE.DirectionalLight(0xffffff, 0.85);
   sun.position.set(-6, 14, 6);
   sun.castShadow = true;
   sun.shadow.mapSize.set(1024, 1024);
-  sun.shadow.camera.left = -9;
-  sun.shadow.camera.right = 9;
-  sun.shadow.camera.top = 9;
-  sun.shadow.camera.bottom = -9;
-  sun.shadow.camera.near = 1;
-  sun.shadow.camera.far = 40;
+  Object.assign(sun.shadow.camera, { left: -9, right: 9, top: 9, bottom: -9, near: 1, far: 40 });
   scene.add(sun);
 
   function makeTexture(c) {
-    var t = new THREE.CanvasTexture(c);
+    const t = new THREE.CanvasTexture(c);
     t.encoding = THREE.sRGBEncoding;
     t.anisotropy = 4;
     return t;
   }
 
+  const artCache = new Map();
+  function artFor(def) {
+    const key = def.type + ':' + def.hue + ':' + def.seed;
+    let art = artCache.get(key);
+    if (!art) {
+      const c = document.createElement('canvas');
+      c.width = 256;
+      c.height = 128;
+      PAINTERS[def.type](c.getContext('2d'), rng(def.seed), def.hue);
+      art = { canvas: c, texture: makeTexture(c) };
+      artCache.set(key, art);
+    }
+    return art;
+  }
+
   function tarmacTexture() {
-    var n = 1024;
-    var c = document.createElement('canvas');
+    const n = 1024;
+    const c = document.createElement('canvas');
     c.width = c.height = n;
-    var g = c.getContext('2d');
+    const g = c.getContext('2d');
     g.fillStyle = '#41464c';
     g.fillRect(0, 0, n, n);
-    var i, v, s;
-    for (i = 0; i < 30000; i++) {
-      v = 60 + Math.floor(Math.random() * 70);
+    for (let i = 0; i < 30000; i++) {
+      const v = 60 + Math.floor(Math.random() * 70);
       g.fillStyle = 'rgba(' + v + ',' + v + ',' + (v + 4) + ',0.55)';
-      s = 0.8 + Math.random() * 2.2;
+      const s = 0.8 + Math.random() * 2.2;
       g.fillRect(Math.random() * n, Math.random() * n, s, s);
     }
-    for (i = 0; i < 900; i++) {
-      v = 120 + Math.floor(Math.random() * 90);
+    for (let i = 0; i < 900; i++) {
+      const v = 120 + Math.floor(Math.random() * 90);
       g.fillStyle = 'rgb(' + v + ',' + v + ',' + (v - 6) + ')';
       g.beginPath();
       g.arc(Math.random() * n, Math.random() * n, 1.5 + Math.random() * 3.2, 0, Math.PI * 2);
@@ -261,445 +537,1004 @@
     return makeTexture(c);
   }
 
-  function plateTexture() {
-    var n = 1024;
-    var cells = 8;
-    var cs = n / cells;
-    var c = document.createElement('canvas');
+  function plateFloorTexture() {
+    const n = 512;
+    const c = document.createElement('canvas');
     c.width = c.height = n;
-    var g = c.getContext('2d');
-    g.fillStyle = '#2b2e33';
+    const g = c.getContext('2d');
+    g.fillStyle = '#26292d';
     g.fillRect(0, 0, n, n);
-    for (var i = 0; i < cells; i++) {
-      for (var j = 0; j < cells; j++) {
-        var x = i * cs;
-        var y = j * cs;
-        var grad = g.createLinearGradient(x, y, x + cs, y + cs);
-        grad.addColorStop(0, '#5d636b');
-        grad.addColorStop(1, '#383c42');
-        g.fillStyle = grad;
-        g.fillRect(x + 6, y + 6, cs - 12, cs - 12);
-        g.strokeStyle = 'rgba(255,255,255,0.14)';
-        g.lineWidth = 3;
-        g.strokeRect(x + 9, y + 9, cs - 18, cs - 18);
-      }
+    for (let i = 0; i < 6000; i++) {
+      g.fillStyle = Math.random() < 0.2 ? 'rgba(120,70,40,0.35)' : 'rgba(80,86,92,0.4)';
+      const s = 1 + Math.random() * 2.5;
+      g.fillRect(Math.random() * n, Math.random() * n, s, s);
     }
     return makeTexture(c);
   }
 
-  function plateBumpTexture() {
-    var n = 1024;
-    var cells = 8;
-    var cs = n / cells;
-    var c = document.createElement('canvas');
-    c.width = c.height = n;
-    var g = c.getContext('2d');
-    g.fillStyle = '#d0d0d0';
-    g.fillRect(0, 0, n, n);
-    for (var i = 0; i < cells; i++) {
-      for (var j = 0; j < cells; j++) {
-        var cx = i * cs + cs / 2;
-        var cy = j * cs + cs / 2;
-        var grad = g.createRadialGradient(cx, cy, cs * 0.05, cx, cy, cs * 0.55);
-        grad.addColorStop(0, '#303030');
-        grad.addColorStop(1, '#8c8c8c');
-        g.fillStyle = grad;
-        g.fillRect(i * cs + 8, j * cs + 8, cs - 16, cs - 16);
-      }
-    }
-    var t = new THREE.CanvasTexture(c);
-    t.anisotropy = 4;
-    return t;
-  }
-
-  var textures = { tarmac: tarmacTexture(), plate: plateTexture() };
-  var plateBump = plateBumpTexture();
-
-  var groundMat = new THREE.MeshStandardMaterial({ map: textures.tarmac, roughness: 0.95, metalness: 0 });
-  var groundMesh = new THREE.Mesh(new THREE.PlaneGeometry(HALF * 2, HALF * 2), groundMat);
+  const groundTextures = { tarmac: tarmacTexture(), plate: plateFloorTexture() };
+  const groundMat = new THREE.MeshStandardMaterial({ map: groundTextures.tarmac, roughness: 0.95, metalness: 0 });
+  const groundMesh = new THREE.Mesh(new THREE.PlaneGeometry(HALF * 2, HALF * 2), groundMat);
   groundMesh.rotation.x = -Math.PI / 2;
   groundMesh.receiveShadow = true;
   scene.add(groundMesh);
 
-  var curbMat = new THREE.MeshStandardMaterial({ color: 0xaeb4ba, roughness: 0.9 });
-  function addWallMesh(x, z, w, d) {
-    var m = new THREE.Mesh(new THREE.BoxGeometry(w, WALL_H, d), curbMat);
-    m.position.set(x, WALL_H / 2, z);
-    m.castShadow = true;
-    m.receiveShadow = true;
-    scene.add(m);
-  }
+  const curbMat = new THREE.MeshStandardMaterial({ color: 0xaeb4ba, roughness: 0.9 });
+  const ridgeMat = new THREE.MeshStandardMaterial({ color: 0x7a8088, roughness: 0.45, metalness: 0.35 });
+  const ridgeGroup = new THREE.Group();
+  ridgeGroup.visible = false;
+  scene.add(ridgeGroup);
 
-  function marbleTexture(base) {
-    var c = document.createElement('canvas');
-    c.width = 256;
-    c.height = 128;
-    var g = c.getContext('2d');
-    g.fillStyle = base;
-    g.fillRect(0, 0, 256, 128);
-    g.strokeStyle = 'rgba(255,255,255,0.75)';
-    g.lineWidth = 14;
-    g.lineCap = 'round';
-    for (var i = 0; i < 4; i++) {
-      var y = 16 + i * 30;
-      g.beginPath();
-      g.moveTo(0, y + Math.sin(i) * 10);
-      for (var x = 0; x <= 256; x += 16) {
-        g.lineTo(x, y + Math.sin((x / 256) * Math.PI * 2 + i) * 10);
-      }
-      g.stroke();
-    }
-    return makeTexture(c);
-  }
-
-  /* ---------- Physique ---------- */
-  var world = new CANNON.World();
+  /* ================= Physique ================= */
+  const world = new CANNON.World();
   world.gravity.set(0, -30, 0);
   world.broadphase = new CANNON.NaiveBroadphase();
   world.solver.iterations = 14;
 
-  var mGround = new CANNON.Material('ground');
-  var mMarble = new CANNON.Material('marble');
-  var mWall = new CANNON.Material('wall');
-  var cmGround = new CANNON.ContactMaterial(mMarble, mGround, { friction: 0.5, restitution: 0.05 });
+  const mGround = new CANNON.Material('ground');
+  const mMarble = new CANNON.Material('marble');
+  const mWall = new CANNON.Material('wall');
+  const cmGround = new CANNON.ContactMaterial(mMarble, mGround, { friction: 0.5, restitution: 0.05 });
   world.addContactMaterial(cmGround);
   world.addContactMaterial(new CANNON.ContactMaterial(mMarble, mMarble, { friction: 0.1, restitution: 0.75 }));
   world.addContactMaterial(new CANNON.ContactMaterial(mMarble, mWall, { friction: 0.05, restitution: 0.85 }));
 
-  var groundBody = new CANNON.Body({ mass: 0, material: mGround });
+  const groundBody = new CANNON.Body({ mass: 0, material: mGround });
   groundBody.addShape(new CANNON.Plane());
   groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
   world.addBody(groundBody);
 
-  function addWall(x, z, w, d) {
-    var b = new CANNON.Body({ mass: 0, material: mWall });
-    b.addShape(new CANNON.Box(new CANNON.Vec3(w / 2, WALL_H, d / 2)));
-    b.position.set(x, WALL_H / 2, z);
+  function addBox(x, y, z, w, h, d, material, mesh) {
+    const b = new CANNON.Body({ mass: 0, material: material });
+    b.addShape(new CANNON.Box(new CANNON.Vec3(w / 2, h / 2, d / 2)));
+    b.position.set(x, y, z);
     world.addBody(b);
-    addWallMesh(x, z, w, d);
+    mesh.position.set(x, y, z);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    return b;
   }
-  var edge = HALF + WALL_T / 2;
-  var longSide = HALF * 2 + WALL_T * 2;
-  addWall(0, -edge, longSide, WALL_T);
-  addWall(0, edge, longSide, WALL_T);
-  addWall(-edge, 0, WALL_T, HALF * 2);
-  addWall(edge, 0, WALL_T, HALF * 2);
 
-  function makeMarble(color) {
-    var mesh = new THREE.Mesh(
-      new THREE.SphereGeometry(R, 32, 24),
-      new THREE.MeshStandardMaterial({ map: marbleTexture(color), roughness: 0.12, metalness: 0.1 })
-    );
+  /* Murs : ils descendent sous le fond de la plaque pour qu'aucune bille ne passe dessous. */
+  const edge = HALF + WALL_T / 2;
+  const longSide = HALF * 2 + WALL_T * 2;
+  [[0, -edge, longSide, WALL_T], [0, edge, longSide, WALL_T], [-edge, 0, WALL_T, HALF * 2], [edge, 0, WALL_T, HALF * 2]].forEach(function (w) {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w[2], WALL_H + 0.5, w[3]), curbMat);
+    scene.add(m);
+    addBox(w[0], WALL_H / 2 - 0.25, w[1], w[2], WALL_H + 0.5, w[3], mWall, m);
+  });
+
+  /* Lignes en relief de la plaque : de vraies marches à angle droit. */
+  const ridgeBodies = [];
+  for (let k = 0; k <= HALF * 2 / PLATE.cell; k++) {
+    const pos = -HALF + k * PLATE.cell;
+    const specs = [[pos, 0, PLATE.ridge, HALF * 2], [0, pos, HALF * 2, PLATE.ridge]];
+    specs.forEach(function (s) {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(s[2], PLATE.depth, s[3]), ridgeMat);
+      ridgeGroup.add(m);
+      const b = addBox(s[0], -PLATE.depth / 2, s[1], s[2], PLATE.depth, s[3], mGround, m);
+      b.restY = -PLATE.depth / 2;
+      ridgeBodies.push(b);
+    });
+  }
+
+  function makeMarble() {
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(R, 32, 24), new THREE.MeshStandardMaterial({ roughness: 0.12, metalness: 0.1 }));
     mesh.castShadow = true;
     scene.add(mesh);
-    var body = new CANNON.Body({ mass: 1, material: mMarble });
+    const body = new CANNON.Body({ mass: 1, material: mMarble });
     body.addShape(new CANNON.Sphere(R));
     world.addBody(body);
-    return { mesh: mesh, body: body, cell: null };
+    return { mesh: mesh, body: body };
   }
-  var marbles = [makeMarble('#d6402b'), makeMarble('#2e63d8')];
+  const marbles = [makeMarble(), makeMarble()];
+
+  function setLook(i, def) {
+    const mat = marbles[i].mesh.material;
+    mat.map = artFor(def).texture;
+    mat.roughness = def.type === 'pearl' ? 0.35 : 0.12;
+    mat.metalness = def.type === 'pearl' ? 0.25 : 0.1;
+    mat.needsUpdate = true;
+  }
 
   marbles.forEach(function (m, i) {
     m.body.addEventListener('collide', function (e) {
-      if (state.phase === 'rolling' && e.body === marbles[1 - i].body) {
-        endRound(state.turn);
-      }
+      if (game.phase === 'rolling' && e.body === marbles[1 - i].body) finish(game.turn);
     });
   });
 
-  function applyTerrain() {
-    var t = TERRAINS[state.terrain];
+  let terrain = 'tarmac';
+  const groundY = () => (terrain === 'plate' ? -PLATE.depth : 0);
+
+  function setTerrain(name) {
+    terrain = name;
+    const t = TERRAINS[name];
+    const plate = name === 'plate';
     cmGround.friction = t.friction;
     marbles.forEach(function (m) {
       m.body.linearDamping = t.damp;
       m.body.angularDamping = t.damp;
-      m.cell = null;
     });
-    groundMat.map = textures[state.terrain];
-    groundMat.bumpMap = state.terrain === 'plate' ? plateBump : null;
-    groundMat.bumpScale = 2.5;
+    groundBody.position.y = groundY();
+    groundMesh.position.y = groundY() + 0.001;
+    groundMat.map = groundTextures[name];
     groundMat.needsUpdate = true;
+    ridgeGroup.visible = plate;
+    ridgeBodies.forEach(function (b) {
+      b.position.y = plate ? b.restY : -50;
+      b.aabbNeedsUpdate = true;
+    });
+    document.querySelectorAll('[data-terrain]').forEach(function (b) {
+      b.setAttribute('aria-pressed', b.dataset.terrain === name ? 'true' : 'false');
+    });
   }
 
-  /* Chaque ligne en relief dévie la bille d'un angle fixe (toujours le même au même endroit) plus un petit aléa. */
-  function ridgeHash(ix, iz, axis) {
-    var s = Math.sin(ix * 12.9898 + iz * 78.233 + axis * 37.719) * 43758.5453;
-    return (s - Math.floor(s)) * 2 - 1;
+  function snapToCell(v) {
+    return (Math.floor((v + HALF) / PLATE.cell) + 0.5) * PLATE.cell - HALF;
   }
 
-  function ridgeKick(v, ix, iz, axis) {
-    var a = ridgeHash(ix, iz, axis) * 0.16 + (Math.random() - 0.5) * 0.05;
-    var c = Math.cos(a);
-    var s = Math.sin(a);
-    var nx = v.x * c - v.z * s;
-    var nz = v.x * s + v.z * c;
-    v.x = nx * 0.88;
-    v.z = nz * 0.88;
+  function randomSpots() {
+    const spots = [
+      { x: -(2 + Math.random() * 2), z: (Math.random() * 2 - 1) * 4 },
+      { x: 2 + Math.random() * 2, z: (Math.random() * 2 - 1) * 4 }
+    ];
+    if (terrain === 'plate') spots.forEach(function (s) { s.x = snapToCell(s.x); s.z = snapToCell(s.z); });
+    return spots;
+  }
+
+  function placeAt(i, spot) {
+    const b = marbles[i].body;
+    b.position.set(spot.x, groundY() + R + 0.001, spot.z);
+    b.velocity.set(0, 0, 0);
+    b.angularVelocity.set(0, 0, 0);
+    b.quaternion.set(0, 0, 0, 1);
+    marbles[i].mesh.visible = true;
+  }
+
+  function hideMarble(i) {
+    marbles[i].body.position.set(0, -50, 0);
+    marbles[i].mesh.visible = false;
   }
 
   function terrainEffects(m) {
-    var v = m.body.velocity;
-    var speed = Math.sqrt(v.x * v.x + v.z * v.z);
-    if (speed < 0.15) {
+    const v = m.body.velocity;
+    const speed = Math.sqrt(v.x * v.x + v.z * v.z);
+    if (speed < 0.15 && Math.abs(v.y) < 0.3) {
       v.set(0, v.y, 0);
       m.body.angularVelocity.set(0, 0, 0);
       return;
     }
-    var t = TERRAINS[state.terrain];
+    const t = TERRAINS[terrain];
     if (t.jitter) {
-      var k = Math.min(speed / 6, 1) * t.jitter;
+      const k = Math.min(speed / 6, 1) * t.jitter;
       v.x += (Math.random() - 0.5) * k;
       v.z += (Math.random() - 0.5) * k;
     }
-    if (t.cell) {
-      var cx = Math.floor((m.body.position.x + HALF) / t.cell);
-      var cz = Math.floor((m.body.position.z + HALF) / t.cell);
-      if (m.cell !== null) {
-        if (cx !== m.cell.x) ridgeKick(v, Math.max(cx, m.cell.x), cz, 1);
-        if (cz !== m.cell.z) ridgeKick(v, cx, Math.max(cz, m.cell.z), 2);
-      }
-      m.cell = { x: cx, z: cz };
-      /* Case creusée : la bille est rappelée vers le centre, une bille lente ne passe pas la ligne. */
-      v.x -= (m.body.position.x + HALF - (cx + 0.5) * t.cell) * t.dish * STEP;
-      v.z -= (m.body.position.z + HALF - (cz + 0.5) * t.cell) * t.dish * STEP;
-    }
   }
 
-  function allStill() {
-    return marbles.every(function (m) {
-      var v = m.body.velocity;
-      return Math.abs(v.x) + Math.abs(v.z) < 0.01;
+  const allStill = () => marbles.every((m) => Math.abs(m.body.velocity.x) + Math.abs(m.body.velocity.z) < 0.01);
+
+  /* ================= Sac de billes ================= */
+  function newBag() {
+    return { marbles: [makeDef('opaque'), makeDef('cateye'), makeDef('milky')], nextPackAt: 0, stakeUid: null };
+  }
+
+  function sanitizeBag(o) {
+    if (!o || typeof o !== 'object' || !Array.isArray(o.marbles)) return null;
+    const seen = new Set();
+    const list = [];
+    o.marbles.forEach(function (d) {
+      const s = sanitizeDef(d);
+      if (s && !seen.has(s.uid)) { seen.add(s.uid); list.push(s); }
     });
+    return {
+      marbles: list,
+      nextPackAt: Number(o.nextPackAt) || 0,
+      stakeUid: typeof o.stakeUid === 'string' ? o.stakeUid : null
+    };
   }
 
-  function physicsStep() {
-    world.step(STEP);
-    marbles.forEach(terrainEffects);
-    if (state.phase !== 'rolling') return;
-    state.rollTime += STEP;
-    if ((state.rollTime > 0.4 && allStill()) || state.rollTime > 14) {
-      marbles.forEach(function (m) {
-        m.body.velocity.set(0, 0, 0);
-        m.body.angularVelocity.set(0, 0, 0);
-      });
-      state.turn = 1 - state.turn;
-      beginTurn();
+  function loadLocal() {
+    try { return sanitizeBag(JSON.parse(localStorage.getItem(LS_KEY))); } catch (e) { return null; }
+  }
+  function saveLocal() {
+    try { localStorage.setItem(LS_KEY, JSON.stringify(bag)); } catch (e) { /* stockage indisponible */ }
+  }
+
+  let bag = loadLocal() || newBag();
+  let bagDoc = null;
+  let writing = false;
+  let dirty = false;
+
+  function persist() {
+    saveLocal();
+    if (bagDoc) flush();
+  }
+
+  async function flush() {
+    if (writing) { dirty = true; return; }
+    writing = true;
+    try {
+      do {
+        dirty = false;
+        await bagDoc.set(JSON.parse(JSON.stringify(bag)));
+      } while (dirty);
+    } catch (e) {
+      bagDoc = null;
     }
+    writing = false;
   }
 
-  /* ---------- Règles ---------- */
-  var botTimer = null;
+  const getStake = () => bag.marbles.find((m) => m.uid === bag.stakeUid) || null;
 
-  function placeMarbles() {
-    var spots = [
-      { x: -(2 + Math.random() * 2), z: (Math.random() * 2 - 1) * 4 },
-      { x: 2 + Math.random() * 2, z: (Math.random() * 2 - 1) * 4 }
-    ];
-    marbles.forEach(function (m, i) {
-      m.body.position.set(spots[i].x, R, spots[i].z);
-      m.body.velocity.set(0, 0, 0);
-      m.body.angularVelocity.set(0, 0, 0);
-      m.body.quaternion.set(0, 0, 0, 1);
-      m.cell = null;
-    });
+  function addMarble(def) {
+    bag.marbles.push(Object.assign(pub(def), { uid: randId(12) }));
   }
 
-  function startRound() {
+  function removeMarble(uid) {
+    bag.marbles = bag.marbles.filter((m) => m.uid !== uid);
+    if (bag.stakeUid === uid) bag.stakeUid = null;
+  }
+
+  /* ================= Partie ================= */
+  const game = {
+    active: false, mode: null, phase: 'idle', turn: 0, rollTime: 0, trackAcc: 0,
+    my: null, opp: null, oppName: '', net: null, targets: null, lastNetAt: 0
+  };
+  let botTimer = null;
+
+  function startMatch(opts) {
     clearTimeout(botTimer);
-    placeMarbles();
-    bannerEl.hidden = true;
-    state.turn = state.starter;
+    game.active = true;
+    game.mode = opts.mode;
+    game.my = opts.my;
+    game.opp = opts.opp;
+    game.oppName = opts.oppName;
+    game.net = opts.net || null;
+    game.targets = null;
+    setTerrain(opts.terrain);
+    setLook(0, opts.my);
+    setLook(1, opts.opp);
+    placeAt(0, opts.spots[0]);
+    placeAt(1, opts.spots[1]);
+    $('banner').hidden = true;
+    game.turn = opts.starter;
+    if (game.net) setPresence('playing');
     beginTurn();
-  }
-
-  function newGame() {
-    state.stock = [START_STOCK, START_STOCK];
-    state.starter = 0;
-    startRound();
+    renderAll();
   }
 
   function beginTurn() {
-    state.phase = 'aim';
-    updateHud();
-    if (state.mode === 'solo' && state.turn === 1) botTurn();
+    if (game.turn === 0) {
+      game.phase = 'aim';
+      setStatus("À toi de tirer. Glisse vers l'arrière puis relâche.");
+    } else if (game.mode === 'bot') {
+      game.phase = 'aim';
+      setStatus("L'ordi vise...");
+      botTurn();
+    } else {
+      game.phase = 'remote';
+      game.lastNetAt = Date.now();
+      setStatus(game.oppName + ' tire...');
+    }
   }
 
   function shoot(player, dir, power) {
-    var m = marbles[player];
-    var v = power * V_MAX;
-    m.body.velocity.set(dir.x * v, 0, dir.z * v);
-    m.body.angularVelocity.set((dir.z * v) / R, 0, (-dir.x * v) / R);
-    state.phase = 'rolling';
-    state.rollTime = 0;
-    updateHud();
+    const b = marbles[player].body;
+    const v = power * V_MAX;
+    b.velocity.set(dir.x * v, 0, dir.z * v);
+    b.angularVelocity.set((dir.z * v) / R, 0, (-dir.x * v) / R);
+    game.phase = 'rolling';
+    game.rollTime = 0;
+    game.trackAcc = 0;
+    setStatus('Les billes roulent...');
   }
 
   function botTurn() {
     botTimer = setTimeout(function () {
-      if (state.phase !== 'aim' || state.turn !== 1 || state.mode !== 'solo') return;
-      var me = marbles[1].body.position;
-      var you = marbles[0].body.position;
-      var dx = you.x - me.x;
-      var dz = you.z - me.z;
-      var dist = Math.sqrt(dx * dx + dz * dz);
-      var angle = Math.atan2(dz, dx) + (Math.random() - 0.5) * 0.22;
-      var k = -Math.log(1 - TERRAINS[state.terrain].damp);
-      var v = Math.min(dist * k * (1.05 + Math.random() * 0.35) + 0.4, V_MAX);
+      if (!game.active || game.phase !== 'aim' || game.turn !== 1 || game.mode !== 'bot') return;
+      const me = marbles[1].body.position;
+      const you = marbles[0].body.position;
+      const dx = you.x - me.x;
+      const dz = you.z - me.z;
+      const dist = Math.sqrt(dx * dx + dz * dz);
+      const angle = Math.atan2(dz, dx) + (Math.random() - 0.5) * 0.22;
+      let v;
+      if (terrain === 'plate') {
+        v = V_MAX * (0.65 + Math.random() * 0.35);
+      } else {
+        const k = -Math.log(1 - TERRAINS[terrain].damp);
+        v = Math.min(dist * k * (1.05 + Math.random() * 0.35) + 0.4, V_MAX);
+      }
       shoot(1, { x: Math.cos(angle), z: Math.sin(angle) }, v / V_MAX);
     }, 900);
   }
 
-  function endRound(winner) {
-    state.phase = 'over';
-    var loser = 1 - winner;
-    state.stock[winner] += 1;
-    state.stock[loser] -= 1;
-    state.starter = 1 - state.starter;
-    var gameOver = state.stock[0] <= 0 || state.stock[1] <= 0;
-    var title;
-    if (state.mode === 'solo') {
-      title = winner === 0 ? "Tu gagnes la bille de l'adversaire !" : 'Tu perds ta bille.';
+  function onSettled() {
+    marbles.forEach(function (m) {
+      m.body.velocity.set(0, 0, 0);
+      m.body.angularVelocity.set(0, 0, 0);
+    });
+    if (game.net && game.turn === 0) sendNet('settle', { p: netState() });
+    game.turn = 1 - game.turn;
+    beginTurn();
+  }
+
+  function finish(winner) {
+    if (!game.active || game.phase === 'over') return;
+    game.phase = 'over';
+    clearTimeout(botTimer);
+    if (game.net && winner === 0) sendNet('result', { p: netState() });
+    let title;
+    let shown;
+    if (winner === 0) {
+      addMarble(game.opp);
+      shown = game.opp;
+      title = 'Tu gagnes sa bille !';
     } else {
-      title = NAMES[winner] + ' gagne la bille ' + NAMES[loser].toLowerCase() + ' !';
+      removeMarble(game.my.uid);
+      shown = game.my;
+      title = 'Tu perds ta bille.';
     }
-    if (gameOver) title += ' Partie terminée.';
-    bannerTitle.textContent = title;
-    bannerSub.textContent = 'Billes : ' + state.stock[0] + ' contre ' + state.stock[1];
-    nextBtn.textContent = gameOver ? 'Nouvelle partie' : 'Manche suivante';
-    nextBtn.dataset.gameOver = gameOver ? '1' : '';
-    bannerEl.hidden = false;
-    updateHud();
+    persist();
+    showBanner(title, CATALOG[shown.type].name + ' (' + RARITIES[rarityOf(shown)].name.toLowerCase() + ')', shown);
+    setStatus('');
+    renderAll();
   }
 
-  function updateHud() {
-    countRed.textContent = state.stock[0];
-    countBlue.textContent = state.stock[1];
-    whoRed.textContent = state.mode === 'solo' ? 'Toi (rouge)' : 'Rouge';
-    whoBlue.textContent = state.mode === 'solo' ? 'Adversaire (bleu)' : 'Bleu';
-    var msg = '';
-    if (state.phase === 'aim') {
-      if (state.mode === 'solo') {
-        msg = state.turn === 0 ? "À toi de tirer. Glisse vers l'arrière puis relâche." : "L'adversaire vise...";
-      } else {
-        msg = 'Tour du joueur ' + NAMES[state.turn].toLowerCase() + '.';
+  function cancelMatch(message) {
+    if (!game.active || game.phase === 'over') return;
+    game.phase = 'over';
+    clearTimeout(botTimer);
+    showBanner('Partie annulée', message, null);
+    setStatus('');
+  }
+
+  function endMatch() {
+    if (game.net) {
+      const room = game.net.room;
+      game.net = null;
+      room.leave().catch(function () {});
+      setPresence('lobby');
+    }
+    game.active = false;
+    game.phase = 'idle';
+    game.targets = null;
+    $('banner').hidden = true;
+    showIdle();
+    renderAll();
+  }
+
+  function showBanner(title, sub, def) {
+    $('bannerTitle').textContent = title;
+    $('bannerSub').textContent = sub;
+    const holder = $('bannerThumb');
+    holder.replaceChildren();
+    if (def) holder.appendChild(thumbCanvas(def, 56));
+    $('banner').hidden = false;
+  }
+
+  function showIdle() {
+    const stake = getStake();
+    if (stake) {
+      setLook(0, stake);
+      placeAt(0, { x: 0, z: 0 });
+    } else {
+      hideMarble(0);
+    }
+    hideMarble(1);
+    setStatus(stake ? 'Prêt. Choisis un adversaire.' : 'Choisis une bille dans ton sac pour jouer.');
+  }
+
+  function startBotMatch() {
+    const stake = getStake();
+    if (!stake || game.active) return;
+    const opp = makeDef(pick(typesOf(rarityOf(stake))));
+    startMatch({ mode: 'bot', my: stake, opp: opp, oppName: "L'ordi", terrain: terrain, spots: randomSpots(), starter: Math.random() < 0.5 ? 0 : 1 });
+  }
+
+  /* ================= Réseau : état des billes ================= */
+  const round = (v) => Math.round(v * 10000) / 10000;
+
+  function netOrder(arr) {
+    return game.net && !game.net.isHost ? [arr[1], arr[0]] : arr;
+  }
+
+  function netState() {
+    return netOrder(marbles.map(function (m) {
+      const p = m.body.position;
+      const q = m.body.quaternion;
+      return [p.x, p.y, p.z, q.x, q.y, q.z, q.w].map(round);
+    }));
+  }
+
+  function readState(arr) {
+    if (!Array.isArray(arr) || arr.length !== 2) return null;
+    const out = [];
+    for (const e of arr) {
+      if (!Array.isArray(e) || e.length !== 7 || !e.every((n) => typeof n === 'number' && isFinite(n))) return null;
+      const q = new THREE.Quaternion(e[3], e[4], e[5], e[6]);
+      if (q.length() < 0.5) q.set(0, 0, 0, 1);
+      q.normalize();
+      out.push({
+        p: new THREE.Vector3(Math.max(-HALF, Math.min(HALF, e[0])), Math.max(-1, Math.min(3, e[1])), Math.max(-HALF, Math.min(HALF, e[2]))),
+        q: q
+      });
+    }
+    return netOrder(out);
+  }
+
+  function applyExact(state) {
+    state.forEach(function (s, i) {
+      const b = marbles[i].body;
+      b.position.set(s.p.x, s.p.y, s.p.z);
+      b.quaternion.set(s.q.x, s.q.y, s.q.z, s.q.w);
+      b.velocity.set(0, 0, 0);
+      b.angularVelocity.set(0, 0, 0);
+      marbles[i].mesh.position.copy(s.p);
+      marbles[i].mesh.quaternion.copy(s.q);
+    });
+    game.targets = null;
+  }
+
+  function sendNet(topic, data) {
+    if (!game.net) return;
+    data.gid = game.net.gid;
+    game.net.room.emit(topic, data).catch(function () {});
+  }
+
+  function fromOpponent(msg) {
+    return game.net && !msg.isMe && msg.peer === game.net.oppPeer && msg.data && msg.data.gid === game.net.gid;
+  }
+
+  function wireGameRoom(gr) {
+    gr.on('track', function (msg) {
+      if (!fromOpponent(msg) || game.phase !== 'remote') return;
+      const s = readState(msg.data.p);
+      if (!s) return;
+      game.targets = s;
+      game.lastNetAt = Date.now();
+    });
+    gr.on('settle', function (msg) {
+      if (!fromOpponent(msg) || game.phase !== 'remote') return;
+      const s = readState(msg.data.p);
+      if (s) applyExact(s);
+      game.turn = 0;
+      beginTurn();
+    });
+    gr.on('result', function (msg) {
+      if (!fromOpponent(msg) || game.phase !== 'remote') return;
+      const s = readState(msg.data.p);
+      if (s) applyExact(s);
+      finish(1);
+    });
+  }
+
+  /* ================= Réseau : salle et défis ================= */
+  const net = { room: null, user: null, myPeer: null, peers: [], pending: null, incoming: null, canSend: true };
+
+  function setPresence(st) {
+    if (net.room) net.room.presence({ st: st }).catch(function () {});
+  }
+
+  async function connectRoom() {
+    const C = window.claude;
+    if (!C || typeof C.use !== 'function') { lobbyUnavailable(); return; }
+    const results = await Promise.all([C.use('room'), C.use('user')]);
+    const room = results[0];
+    net.user = results[1];
+    if (!room) { lobbyUnavailable(); return; }
+    net.room = room;
+    room.onPeers(function (change) {
+      net.peers = change.peers;
+      const me = change.peers.find((p) => p.sameTab);
+      if (me) net.myPeer = me.peer;
+      renderLobby();
+    }, function () { lobbyUnavailable(); });
+    room.on('challenge', onChallenge);
+    room.on('answer', onAnswer);
+    setPresence('lobby');
+  }
+
+  function lobbyUnavailable() {
+    net.room = null;
+    $('lobbyNote').textContent = "Le jeu en ligne n'est pas disponible ici. Ouvre la page sur claude.ai, connecté à ton compte.";
+    $('peerList').replaceChildren();
+  }
+
+  function challenge(peer) {
+    const stake = getStake();
+    if (!stake || game.active || net.pending || !net.room) return;
+    const gid = randId(10);
+    net.pending = { gid: gid, to: peer.peer, by: peer.by, stake: pub(stake), terrain: terrain };
+    net.room.emit('challenge', { to: peer.peer, gid: gid, marble: pub(stake), terrain: terrain }).catch(function (e) {
+      net.pending = null;
+      if (e && e.code === 'not_permitted') net.canSend = false;
+      renderLobby();
+    });
+    setTimeout(function () {
+      if (net.pending && net.pending.gid === gid) {
+        net.pending = null;
+        setStatus('Pas de réponse à ton défi.');
+        renderLobby();
       }
-    } else if (state.phase === 'rolling') {
-      msg = 'Les billes roulent...';
-    }
-    statusEl.textContent = msg;
+    }, 30000);
+    renderLobby();
   }
 
-  /* ---------- Visée au doigt ---------- */
-  var ray = new THREE.Raycaster();
-  var plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-  var ndc = new THREE.Vector2();
-  var drag = null;
+  function onChallenge(msg) {
+    const d = msg.data;
+    if (msg.isMe || !d || d.to !== net.myPeer || typeof d.gid !== 'string' || !/^[a-z0-9]{6,16}$/.test(d.gid)) return;
+    const marble = sanitizeDef(d.marble);
+    if (!marble) return;
+    if (game.active || net.incoming || net.pending) {
+      net.room.emit('answer', { to: msg.peer, gid: d.gid, accept: false, busy: true }).catch(function () {});
+      return;
+    }
+    net.incoming = { from: msg.peer, by: msg.by, gid: d.gid, marble: marble, terrain: d.terrain === 'plate' ? 'plate' : 'tarmac' };
+    showView('play');
+    renderLobby();
+  }
 
-  var dots = [];
-  for (var i = 0; i < 10; i++) {
-    var d = new THREE.Mesh(
-      new THREE.SphereGeometry(0.075, 10, 8),
-      new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 })
-    );
+  function declineIncoming() {
+    const inc = net.incoming;
+    if (!inc) return;
+    net.incoming = null;
+    net.room.emit('answer', { to: inc.from, gid: inc.gid, accept: false }).catch(function () {});
+    renderLobby();
+  }
+
+  async function acceptIncoming(def) {
+    const inc = net.incoming;
+    if (!inc || rarityOf(def) !== rarityOf(inc.marble)) return;
+    net.incoming = null;
+    renderLobby();
+    try {
+      const gr = await net.room.join('g-' + inc.gid);
+      const name = await nameOf(inc.by);
+      const waiting = { done: false };
+      game.net = { room: gr, isHost: false, oppPeer: inc.from, gid: inc.gid };
+      wireGameRoom(gr);
+      gr.on('start', function (msg) {
+        if (waiting.done || !fromOpponent(msg)) return;
+        game.net = { room: gr, isHost: false, oppPeer: inc.from, gid: inc.gid };
+        const s = readState(msg.data.p);
+        if (!s) return;
+        waiting.done = true;
+        startMatch({
+          mode: 'online', my: def, opp: inc.marble, oppName: name, terrain: msg.data.terrain === 'plate' ? 'plate' : 'tarmac',
+          spots: s.map((e) => ({ x: e.p.x, z: e.p.z })), starter: msg.data.starter === 'guest' ? 0 : 1, net: game.net
+        });
+      });
+      watchOpponent(gr, inc.from);
+      await net.room.emit('answer', { to: inc.from, gid: inc.gid, accept: true, marble: pub(def) });
+      setStatus('Défi accepté. La partie commence...');
+      setTimeout(function () {
+        if (!waiting.done) {
+          gr.leave().catch(function () {});
+          if (!game.active) game.net = null;
+          setStatus("La partie n'a pas démarré.");
+        }
+      }, NET_TIMEOUT_MS);
+    } catch (e) {
+      game.net = null;
+      setStatus("Impossible de rejoindre la partie.");
+    }
+  }
+
+  async function onAnswer(msg) {
+    const d = msg.data;
+    const p = net.pending;
+    if (msg.isMe || !d || d.to !== net.myPeer || !p || d.gid !== p.gid || msg.peer !== p.to) return;
+    net.pending = null;
+    const name = await nameOf(p.by);
+    if (!d.accept) {
+      setStatus(d.busy ? name + ' est déjà occupé.' : name + ' a refusé ton défi.');
+      renderLobby();
+      return;
+    }
+    const theirs = sanitizeDef(d.marble);
+    const mine = bag.marbles.find((m) => m.uid === p.stake.uid);
+    if (!theirs || !mine || rarityOf(theirs) !== rarityOf(mine)) { renderLobby(); return; }
+    try {
+      const gr = await net.room.join('g-' + p.gid);
+      const netInfo = { room: gr, isHost: true, oppPeer: p.to, gid: p.gid };
+      game.net = netInfo;
+      wireGameRoom(gr);
+      let started = false;
+      gr.onPeers(function (change) {
+        const here = change.peers.some((x) => x.peer === p.to);
+        if (!started && here) {
+          started = true;
+          const spotsTerrain = p.terrain;
+          setTerrain(spotsTerrain);
+          const starter = Math.random() < 0.5 ? 0 : 1;
+          startMatch({ mode: 'online', my: mine, opp: theirs, oppName: name, terrain: spotsTerrain, spots: randomSpots(), starter: starter, net: netInfo });
+          sendNet('start', { terrain: spotsTerrain, starter: starter === 0 ? 'host' : 'guest', p: netState() });
+        }
+      });
+      watchOpponent(gr, p.to);
+      setTimeout(function () {
+        if (!started) {
+          gr.leave().catch(function () {});
+          if (!game.active) game.net = null;
+          setStatus("La partie n'a pas démarré.");
+        }
+      }, NET_TIMEOUT_MS);
+    } catch (e) {
+      game.net = null;
+      setStatus('Impossible de lancer la partie.');
+    }
+  }
+
+  function watchOpponent(gr, oppPeer) {
+    gr.onPeers(function (change) {
+      if (change.left.some((x) => x.peer === oppPeer) && game.active && game.net && game.net.room === gr) {
+        cancelMatch("Ton adversaire est parti. Personne ne perd sa bille.");
+      }
+    });
+  }
+
+  async function nameOf(id) {
+    if (!id || !net.user) return 'Un joueur';
+    try {
+      const ps = await net.user.profiles([id]);
+      return (ps[id] && ps[id].name) || 'Un joueur';
+    } catch (e) {
+      return 'Un joueur';
+    }
+  }
+
+  /* ================= Visée au doigt ================= */
+  const ray = new THREE.Raycaster();
+  const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+  const ndc = new THREE.Vector2();
+  let drag = null;
+
+  const dots = [];
+  for (let i = 0; i < 10; i++) {
+    const d = new THREE.Mesh(new THREE.SphereGeometry(0.075, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 }));
     d.visible = false;
     scene.add(d);
     dots.push(d);
   }
 
   function groundPoint(ev) {
-    var r = canvas.getBoundingClientRect();
+    const r = canvas.getBoundingClientRect();
     ndc.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
     ray.setFromCamera(ndc, camera);
-    var out = new THREE.Vector3();
+    const out = new THREE.Vector3();
     return ray.ray.intersectPlane(plane, out) ? out : null;
   }
 
   function pullFrom(start, p) {
-    var dx = start.x - p.x;
-    var dz = start.z - p.z;
-    var len = Math.sqrt(dx * dx + dz * dz);
+    const dx = start.x - p.x;
+    const dz = start.z - p.z;
+    const len = Math.sqrt(dx * dx + dz * dz);
     if (len < 0.05) return { dir: { x: 1, z: 0 }, power: 0 };
     return { dir: { x: dx / len, z: dz / len }, power: Math.min(len / MAX_PULL, 1) };
   }
 
   function showAim(pull) {
-    var p = marbles[state.turn].body.position;
-    var n = Math.max(1, Math.round(pull.power * 10));
+    const p = marbles[0].body.position;
+    const n = Math.max(1, Math.round(pull.power * 10));
     dots.forEach(function (dot, idx) {
-      if (idx < n) {
-        dot.visible = true;
-        dot.position.set(p.x + pull.dir.x * (0.7 + idx * 0.5), 0.08, p.z + pull.dir.z * (0.7 + idx * 0.5));
-      } else {
-        dot.visible = false;
-      }
+      dot.visible = idx < n;
+      if (dot.visible) dot.position.set(p.x + pull.dir.x * (0.7 + idx * 0.5), p.y - R + 0.08, p.z + pull.dir.z * (0.7 + idx * 0.5));
     });
   }
 
-  function hideAim() {
-    dots.forEach(function (dot) { dot.visible = false; });
-  }
-
-  function canHumanShoot() {
-    return state.phase === 'aim' && (state.mode === 'duo' || state.turn === 0);
-  }
+  const hideAim = () => dots.forEach((dot) => { dot.visible = false; });
+  const canHumanShoot = () => game.active && game.phase === 'aim' && game.turn === 0;
 
   canvas.addEventListener('pointerdown', function (ev) {
     if (!canHumanShoot()) return;
-    var p = groundPoint(ev);
+    const p = groundPoint(ev);
     if (!p) return;
     drag = { id: ev.pointerId, start: p, pull: null };
     canvas.setPointerCapture(ev.pointerId);
   });
   canvas.addEventListener('pointermove', function (ev) {
     if (!drag || ev.pointerId !== drag.id) return;
-    var p = groundPoint(ev);
+    const p = groundPoint(ev);
     if (!p) return;
     drag.pull = pullFrom(drag.start, p);
     showAim(drag.pull);
   });
   function endDrag(ev, fire) {
     if (!drag || ev.pointerId !== drag.id) return;
-    var pull = drag.pull;
+    const pull = drag.pull;
     drag = null;
     hideAim();
-    if (fire && pull && pull.power > 0.06 && canHumanShoot()) shoot(state.turn, pull.dir, pull.power);
+    if (fire && pull && pull.power > 0.06 && canHumanShoot()) shoot(0, pull.dir, pull.power);
   }
   canvas.addEventListener('pointerup', function (ev) { endDrag(ev, true); });
   canvas.addEventListener('pointercancel', function (ev) { endDrag(ev, false); });
 
-  /* ---------- Commandes de la page ---------- */
-  document.querySelectorAll('[data-mode]').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      state.mode = btn.dataset.mode;
-      document.querySelectorAll('[data-mode]').forEach(function (b) {
-        b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
-      });
-      newGame();
-    });
-  });
-  document.querySelectorAll('[data-terrain]').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      state.terrain = btn.dataset.terrain;
-      document.querySelectorAll('[data-terrain]').forEach(function (b) {
-        b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
-      });
-      applyTerrain();
-      startRound();
-    });
-  });
-  nextBtn.addEventListener('click', function () {
-    if (nextBtn.dataset.gameOver) newGame();
-    else startRound();
-  });
+  /* ================= Interface ================= */
+  function setStatus(text) { $('status').textContent = text; }
 
-  /* ---------- Boucle ---------- */
+  function thumbCanvas(def, size) {
+    const src = artFor(def).canvas;
+    const px = size * 2;
+    const c = document.createElement('canvas');
+    c.width = c.height = px;
+    c.style.width = c.style.height = size + 'px';
+    c.setAttribute('role', 'img');
+    c.setAttribute('aria-label', CATALOG[def.type].name);
+    const g = c.getContext('2d');
+    g.save();
+    g.beginPath();
+    g.arc(px / 2, px / 2, px / 2 - 1, 0, Math.PI * 2);
+    g.clip();
+    g.drawImage(src, 0, 0, 128, 128, 0, 0, px, px);
+    let gr = g.createRadialGradient(px * 0.35, px * 0.3, 0, px * 0.35, px * 0.3, px * 0.45);
+    gr.addColorStop(0, 'rgba(255,255,255,0.6)');
+    gr.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = gr;
+    g.fillRect(0, 0, px, px);
+    gr = g.createRadialGradient(px / 2, px / 2, px * 0.3, px / 2, px / 2, px / 2);
+    gr.addColorStop(0, 'rgba(0,0,0,0)');
+    gr.addColorStop(1, 'rgba(0,0,0,0.35)');
+    g.fillStyle = gr;
+    g.fillRect(0, 0, px, px);
+    g.restore();
+    return c;
+  }
+
+  function labelFor(def) {
+    const wrap = document.createElement('span');
+    wrap.className = 'stake-text';
+    const name = document.createElement('span');
+    name.className = 'card-name';
+    name.textContent = CATALOG[def.type].name;
+    const chip = document.createElement('span');
+    chip.className = 'chip r-' + rarityOf(def);
+    chip.textContent = RARITIES[rarityOf(def)].name;
+    wrap.append(name, chip);
+    return wrap;
+  }
+
+  function cardEl(def, onPick, pressed) {
+    const el = document.createElement(onPick ? 'button' : 'div');
+    el.className = 'card r-' + rarityOf(def);
+    if (onPick) {
+      el.type = 'button';
+      el.setAttribute('aria-pressed', pressed ? 'true' : 'false');
+      el.addEventListener('click', onPick);
+    }
+    el.append(thumbCanvas(def, 56), labelFor(def));
+    return el;
+  }
+
+  const byRarity = (a, b) => RARITIES[rarityOf(b)].rank - RARITIES[rarityOf(a)].rank || a.type.localeCompare(b.type);
+
+  function renderStake() {
+    const btn = $('stakeBtn');
+    btn.replaceChildren();
+    const stake = getStake();
+    if (stake) {
+      btn.append(thumbCanvas(stake, 36), labelFor(stake));
+    } else {
+      const t = document.createElement('span');
+      t.textContent = bag.marbles.length ? 'Choisir dans mon sac' : 'Sac vide : ouvre une boîte';
+      btn.append(t);
+    }
+    $('botBtn').disabled = !stake || game.active;
+    $('setup').querySelectorAll('button').forEach(function (b) { if (b.id !== 'botBtn') b.disabled = game.active; });
+  }
+
+  function renderBag() {
+    $('bagCount').textContent = bag.marbles.length;
+    const grid = $('bagGrid');
+    grid.replaceChildren();
+    if (!bag.marbles.length) {
+      const p = document.createElement('p');
+      p.className = 'note';
+      p.textContent = 'Ton sac est vide. Ouvre une boîte pour avoir de nouvelles billes.';
+      grid.append(p);
+      return;
+    }
+    bag.marbles.slice().sort(byRarity).forEach(function (def) {
+      grid.append(cardEl(def, function () {
+        if (game.active) return;
+        bag.stakeUid = def.uid;
+        persist();
+        showView('play');
+        showIdle();
+        renderAll();
+      }, def.uid === bag.stakeUid));
+    });
+  }
+
+  function renderPack() {
+    const wait = bag.nextPackAt - Date.now();
+    const ready = wait <= 0;
+    $('packDot').hidden = !ready;
+    $('openPackBtn').disabled = !ready;
+    $('packInfo').textContent = ready
+      ? 'Ta boîte est prête : ' + PACK_SIZE + ' billes à découvrir.'
+      : 'Prochaine boîte dans ' + formatWait(wait) + '.';
+  }
+
+  function renderRates() {
+    const box = $('rates');
+    box.replaceChildren();
+    Object.keys(RARITIES).forEach(function (id) {
+      const row = document.createElement('span');
+      const chip = document.createElement('span');
+      chip.className = 'chip r-' + id;
+      chip.textContent = RARITIES[id].name + ' ';
+      row.append(chip, document.createTextNode(RARITIES[id].weight + ' % : ' + typesOf(id).map((t) => CATALOG[t].name).join(', ')));
+      box.append(row);
+    });
+  }
+
+  function openPack() {
+    if (Date.now() < bag.nextPackAt) return;
+    const got = [];
+    for (let i = 0; i < PACK_SIZE; i++) got.push(rollMarble());
+    got.forEach((d) => bag.marbles.push(d));
+    bag.nextPackAt = Date.now() + PACK_INTERVAL;
+    if (!getStake()) bag.stakeUid = got[0].uid;
+    persist();
+    const reveal = $('packReveal');
+    reveal.replaceChildren();
+    got.forEach(function (def, i) {
+      const c = cardEl(def, null, false);
+      c.style.animationDelay = (i * 0.25) + 's';
+      reveal.append(c);
+    });
+    renderAll();
+    if (!game.active) showIdle();
+  }
+
+  async function renderLobby() {
+    const list = $('peerList');
+    const note = $('lobbyNote');
+    renderIncoming();
+    if (!net.room) return;
+    const others = net.peers.filter((p) => p.kind === 'viewer' && !p.isMe);
+    const ids = others.map((p) => p.by).filter(Boolean);
+    let profiles = {};
+    if (net.user && ids.length) {
+      try { profiles = await net.user.profiles(ids); } catch (e) { profiles = {}; }
+    }
+    list.replaceChildren();
+    if (!net.canSend) {
+      note.textContent = "Ton niveau d'accès ne permet pas de jouer en ligne. Demande au propriétaire de te donner l'accès Contributeur.";
+    } else if (!others.length) {
+      note.textContent = "Personne d'autre n'a la page ouverte. Partage-la avec tes amis pour jouer contre eux.";
+    } else {
+      note.textContent = 'Défie un joueur connecté. Il devra miser une bille de la même rareté que la tienne.';
+    }
+    const stake = getStake();
+    others.forEach(function (p) {
+      const li = document.createElement('li');
+      li.className = 'peer';
+      const prof = p.by && profiles[p.by];
+      const img = document.createElement('img');
+      img.alt = '';
+      if (prof) img.src = prof.avatarUrl; else img.hidden = true;
+      const name = document.createElement('span');
+      name.className = 'peer-name';
+      name.textContent = (prof && prof.name) || 'Un joueur';
+      li.append(img, name);
+      const busy = p.presence && p.presence.st === 'playing';
+      if (net.pending && net.pending.to === p.peer) {
+        const s = document.createElement('span');
+        s.className = 'peer-state';
+        s.textContent = 'En attente...';
+        li.append(s);
+      } else if (busy) {
+        const s = document.createElement('span');
+        s.className = 'peer-state';
+        s.textContent = 'En partie';
+        li.append(s);
+      } else {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'ghost';
+        b.textContent = 'Défier';
+        b.disabled = !stake || game.active || !!net.pending || !net.canSend;
+        b.addEventListener('click', function () { challenge(p); });
+        li.append(b);
+      }
+      list.append(li);
+    });
+  }
+
+  async function renderIncoming() {
+    const box = $('incoming');
+    const inc = net.incoming;
+    if (!inc) { box.hidden = true; box.replaceChildren(); return; }
+    const name = await nameOf(inc.by);
+    if (net.incoming !== inc) return;
+    box.hidden = false;
+    box.className = 'incoming';
+    box.replaceChildren();
+    const r = rarityOf(inc.marble);
+    const head = document.createElement('div');
+    head.className = 'row';
+    const text = document.createElement('p');
+    text.textContent = name + ' te défie et mise une bille ' + RARITIES[r].name.toLowerCase() + ' :';
+    head.append(text, thumbCanvas(inc.marble, 36), labelFor(inc.marble));
+    box.append(head);
+    const options = bag.marbles.filter((m) => rarityOf(m) === r);
+    const hint = document.createElement('p');
+    hint.className = 'note';
+    hint.textContent = options.length
+      ? 'Choisis ta bille ' + RARITIES[r].name.toLowerCase() + ' pour accepter :'
+      : "Tu n'as pas de bille " + RARITIES[r].name.toLowerCase() + ' à miser.';
+    box.append(hint);
+    const picks = document.createElement('div');
+    picks.className = 'picks';
+    options.forEach(function (def) {
+      picks.append(cardEl(def, function () { acceptIncoming(def); }, false));
+    });
+    box.append(picks);
+    const no = document.createElement('button');
+    no.type = 'button';
+    no.className = 'ghost';
+    no.textContent = 'Refuser';
+    no.addEventListener('click', declineIncoming);
+    box.append(no);
+  }
+
+  function renderAll() {
+    renderStake();
+    renderBag();
+    renderPack();
+    renderLobby();
+  }
+
+  function showView(name) {
+    ['play', 'bag', 'pack'].forEach(function (v) { $('view-' + v).hidden = v !== name; });
+    document.querySelectorAll('[data-view]').forEach(function (b) {
+      b.setAttribute('aria-current', b.dataset.view === name ? 'true' : 'false');
+    });
+    if (name === 'play') resize();
+  }
+
+  document.querySelectorAll('[data-view]').forEach(function (b) {
+    b.addEventListener('click', function () { showView(b.dataset.view); });
+  });
+  document.querySelectorAll('[data-terrain]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      if (game.active) return;
+      setTerrain(b.dataset.terrain);
+      showIdle();
+    });
+  });
+  $('stakeBtn').addEventListener('click', function () { showView(bag.marbles.length ? 'bag' : 'pack'); });
+  $('botBtn').addEventListener('click', startBotMatch);
+  $('openPackBtn').addEventListener('click', openPack);
+  $('bannerBtn').addEventListener('click', endMatch);
+
+  /* ================= Boucle ================= */
+  function physicsStep() {
+    if (game.phase === 'idle' || game.phase === 'remote') return;
+    world.step(STEP);
+    marbles.forEach(terrainEffects);
+    if (game.phase !== 'rolling') return;
+    game.rollTime += STEP;
+    if (game.net && game.turn === 0) {
+      game.trackAcc += STEP;
+      if (game.trackAcc >= TRACK_EVERY) {
+        game.trackAcc = 0;
+        sendNet('track', { p: netState() });
+      }
+    }
+    if ((game.rollTime > 0.4 && allStill()) || game.rollTime > 14) onSettled();
+  }
+
   function resize() {
-    var w = stageEl.clientWidth;
-    var h = stageEl.clientHeight;
+    const w = stageEl.clientWidth;
+    const h = stageEl.clientHeight;
     if (!w || !h) return;
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
-    var dist = 19.2 * Math.max(1, 1 / camera.aspect) * 1.06;
+    const dist = 19.2 * Math.max(1, 1 / camera.aspect) * 1.06;
     camera.position.set(0, dist * 0.92, dist * 0.38);
     camera.lookAt(0, 0, 0);
     camera.updateProjectionMatrix();
@@ -707,28 +1542,71 @@
   if (window.ResizeObserver) new ResizeObserver(resize).observe(stageEl);
   window.addEventListener('resize', resize);
 
-  var last = performance.now();
-  var acc = 0;
+  let last = performance.now();
+  let acc = 0;
   function frame(now) {
     acc += Math.min((now - last) / 1000, 0.05);
     last = now;
-    var steps = 0;
+    let steps = 0;
     while (acc >= STEP && steps < 12) {
       physicsStep();
       acc -= STEP;
       steps++;
     }
-    marbles.forEach(function (m) {
-      m.mesh.position.copy(m.body.position);
-      m.mesh.quaternion.copy(m.body.quaternion);
-    });
+    if (game.phase === 'remote') {
+      if (game.targets) {
+        marbles.forEach(function (m, i) {
+          m.mesh.position.lerp(game.targets[i].p, 0.35);
+          m.mesh.quaternion.slerp(game.targets[i].q, 0.35);
+        });
+      }
+      if (Date.now() - game.lastNetAt > NET_TIMEOUT_MS) cancelMatch('La connexion avec ton adversaire est perdue. Personne ne perd sa bille.');
+    } else {
+      marbles.forEach(function (m) {
+        m.mesh.position.copy(m.body.position);
+        m.mesh.quaternion.copy(m.body.quaternion);
+      });
+    }
     renderer.render(scene, camera);
     requestAnimationFrame(frame);
   }
 
-  applyTerrain();
+  /* Le sac enregistré sur le compte remplace la copie locale dès qu'il arrive. */
+  async function connectDb() {
+    const C = window.claude;
+    if (!C || typeof C.use !== 'function') return;
+    try {
+      const results = await Promise.all([C.use('db'), C.use('user')]);
+      const db = results[0];
+      const user = results[1];
+      if (!db || !user) return;
+      const id = await user.id();
+      if (!id) return;
+      const ref = db.doc('data/users/' + id + '/bag');
+      const snap = await ref.get();
+      bagDoc = ref;
+      const remote = snap.exists ? sanitizeBag(snap.data()) : null;
+      if (remote) {
+        bag = remote;
+        saveLocal();
+        if (!game.active) showIdle();
+        renderAll();
+      } else {
+        persist();
+      }
+    } catch (e) {
+      bagDoc = null;
+    }
+  }
+
+  setTerrain('tarmac');
+  renderRates();
   resize();
-  newGame();
+  showIdle();
+  renderAll();
+  setInterval(renderPack, 1000);
   requestAnimationFrame(frame);
+  connectDb();
+  connectRoom();
 })();
 </script>
