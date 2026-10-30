@@ -7,8 +7,9 @@ const MIN_DRAG_PIXELS := 10.0
 const MAX_DRAG_PIXELS := 200.0
 const FORCE_PER_PIXEL := 0.001
 const SETTLE_DELAY := 0.3
-const FALL_LIMIT := -1.0
-const START_STOCK := 5
+const WALL_THICKNESS := 0.5
+const WALL_HEIGHT := 1.0
+const START_STOCK := 1
 
 var marbles: Array[Marble] = []
 var stock: Array[int] = [START_STOCK, START_STOCK]
@@ -49,10 +50,6 @@ func _unhandled_input(event: InputEvent) -> void:
 func _physics_process(delta: float) -> void:
 	if not shooting:
 		return
-	for index in marbles.size():
-		if marbles[index].position.y < FALL_LIMIT:
-			_end_round(1 - index)
-			return
 	settle_time -= delta
 	if settle_time > 0.0 or not _all_still():
 		return
@@ -145,29 +142,44 @@ func _build_field() -> void:
 	sun.rotation_degrees = Vector3(-60.0, -30.0, 0.0)
 	add_child(sun)
 
-	var box_size := Vector3(FIELD_SIZE, 0.2, FIELD_SIZE)
+	var ground_physics := PhysicsMaterial.new()
+	ground_physics.friction = 0.6
+	_add_box(Vector3(0.0, -0.1, 0.0), Vector3(FIELD_SIZE, 0.2, FIELD_SIZE), ground_physics, Color(0.45, 0.45, 0.48))
+
+	var wall_physics := PhysicsMaterial.new()
+	wall_physics.bounce = 0.8
+	wall_physics.friction = 0.2
+	var wall_color := Color(0.55, 0.35, 0.2)
+	var edge := FIELD_SIZE / 2.0 + WALL_THICKNESS / 2.0
+	var long_side := Vector3(FIELD_SIZE + WALL_THICKNESS * 2.0, WALL_HEIGHT, WALL_THICKNESS)
+	var short_side := Vector3(WALL_THICKNESS, WALL_HEIGHT, FIELD_SIZE)
+	_add_box(Vector3(0.0, WALL_HEIGHT / 2.0, -edge), long_side, wall_physics, wall_color)
+	_add_box(Vector3(0.0, WALL_HEIGHT / 2.0, edge), long_side, wall_physics, wall_color)
+	_add_box(Vector3(-edge, WALL_HEIGHT / 2.0, 0.0), short_side, wall_physics, wall_color)
+	_add_box(Vector3(edge, WALL_HEIGHT / 2.0, 0.0), short_side, wall_physics, wall_color)
+
+
+func _add_box(box_position: Vector3, box_size: Vector3, physics: PhysicsMaterial, color: Color) -> void:
+	var body := StaticBody3D.new()
+	body.position = box_position
+	body.physics_material_override = physics
 
 	var collision := CollisionShape3D.new()
 	var box_shape := BoxShape3D.new()
 	box_shape.size = box_size
 	collision.shape = box_shape
-	collision.position.y = -0.1
 
 	var mesh_instance := MeshInstance3D.new()
 	var box_mesh := BoxMesh.new()
 	box_mesh.size = box_size
 	var material := StandardMaterial3D.new()
-	material.albedo_color = Color(0.45, 0.45, 0.48)
+	material.albedo_color = color
 	box_mesh.material = material
 	mesh_instance.mesh = box_mesh
-	mesh_instance.position.y = -0.1
 
-	var ground := StaticBody3D.new()
-	ground.physics_material_override = PhysicsMaterial.new()
-	ground.physics_material_override.friction = 0.6
-	ground.add_child(collision)
-	ground.add_child(mesh_instance)
-	add_child(ground)
+	body.add_child(collision)
+	body.add_child(mesh_instance)
+	add_child(body)
 
 
 func _build_hud() -> void:

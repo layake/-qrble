@@ -16,6 +16,6 @@ Jeu mobile de billes en 3D avec physique, développé avec Godot 4.4+.
 
 ## Règles du prototype
 
-- Chaque joueur part avec 5 billes.
-- Une bille qui sort du terrain fait perdre son propriétaire.
+- Une seule bille par joueur : le duel se joue pour une bille.
+- Les bords du terrain sont des murs qui rebondissent.
 - Le terrain est plat pour l'instant. Les surfaces (goudron, plaque à cases, cailloux) viendront ensuite.
