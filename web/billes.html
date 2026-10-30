@@ -1,0 +1,691 @@
+<title>Billes</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=Figtree:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  /* Mise en page : titre et réglages en haut, terrain 3D au centre, compteurs de billes dessous. */
+  :root {
+    --bg: #e3e7eb;
+    --ink: #1b232b;
+    --muted: #55616d;
+    --panel: #f2f4f6;
+    --line: #c2cad2;
+    --red: #d6402b;
+    --blue: #2e63d8;
+    --stage: #262c33;
+    --focus: #2e63d8;
+    --font-display: 'Bagel Fat One', 'Arial Rounded MT Bold', system-ui, sans-serif;
+    --font-body: 'Figtree', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12161b;
+      --ink: #e6ebef;
+      --muted: #9aa6b2;
+      --panel: #1b2128;
+      --line: #2c353f;
+      --stage: #1a1f25;
+      --focus: #7fa2f2;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12161b;
+    --ink: #e6ebef;
+    --muted: #9aa6b2;
+    --panel: #1b2128;
+    --line: #2c353f;
+    --stage: #1a1f25;
+    --focus: #7fa2f2;
+    color-scheme: dark;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font: 400 16px/1.45 var(--font-body);
+    padding-block: 12px 28px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  .app { max-width: 760px; margin: 0 auto; display: grid; gap: 14px; }
+  header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; }
+  h1 { font: 400 clamp(1.8rem, 6vw, 2.4rem)/1 var(--font-display); margin: 0; letter-spacing: 0.01em; }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--panel); }
+  .seg button {
+    font: 600 14px/1 var(--font-body);
+    color: var(--ink);
+    background: transparent;
+    border: 0;
+    padding: 11px 14px;
+    min-height: 40px;
+    cursor: pointer;
+  }
+  .seg button + button { border-left: 1px solid var(--line); }
+  .seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+  button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+  .stage {
+    position: relative;
+    height: min(68vh, 118vw);
+    min-height: 360px;
+    background: var(--stage);
+    border-radius: 14px;
+    overflow: hidden;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .stage canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+  .banner {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    background: var(--panel);
+    color: var(--ink);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 14px 16px;
+    display: grid;
+    gap: 8px;
+    justify-items: start;
+  }
+  .banner-title { margin: 0; font: 400 1.35rem/1.1 var(--font-display); text-wrap: balance; }
+  .banner-sub { margin: 0; color: var(--muted); font-size: 0.95rem; }
+  .primary {
+    font: 700 15px/1 var(--font-body);
+    color: #fff;
+    background: var(--red);
+    border: 0;
+    border-radius: 10px;
+    padding: 13px 18px;
+    min-height: 44px;
+    cursor: pointer;
+  }
+
+  .status { margin: 0; font-weight: 600; min-height: 1.45em; }
+  .bags { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .bag {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 10px 14px;
+    min-width: 0;
+  }
+  .swatch { flex: none; width: 30px; height: 30px; border-radius: 50%; }
+  .swatch.red { background: radial-gradient(circle at 35% 30%, #ffb3a3, var(--red) 55%, #7e1e12); }
+  .swatch.blue { background: radial-gradient(circle at 35% 30%, #b3c8ff, var(--blue) 55%, #173a86); }
+  .bag-text { display: grid; min-width: 0; }
+  .who { color: var(--muted); font-size: 0.85rem; overflow-wrap: anywhere; }
+  .count { font: 400 1.6rem/1 var(--font-display); font-variant-numeric: tabular-nums; }
+  .help { margin: 0; color: var(--muted); font-size: 0.92rem; max-width: 65ch; }
+</style>
+
+<div class="app">
+  <header>
+    <h1>Billes</h1>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Mode de jeu">
+        <button type="button" data-mode="solo" aria-pressed="true">Solo</button>
+        <button type="button" data-mode="duo" aria-pressed="false">2 joueurs</button>
+      </div>
+      <div class="seg" role="group" aria-label="Terrain">
+        <button type="button" data-terrain="tarmac" aria-pressed="true">Goudron</button>
+        <button type="button" data-terrain="plate" aria-pressed="false">Plaque d'égout</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="stage" id="stage">
+    <canvas id="gl" aria-label="Terrain de billes en 3D"></canvas>
+    <div class="banner" id="banner" hidden>
+      <p class="banner-title" id="bannerTitle"></p>
+      <p class="banner-sub" id="bannerSub"></p>
+      <button type="button" class="primary" id="nextBtn">Manche suivante</button>
+    </div>
+  </div>
+
+  <p class="status" id="status" aria-live="polite"></p>
+
+  <div class="bags">
+    <div class="bag">
+      <span class="swatch red"></span>
+      <span class="bag-text"><span class="count" id="countRed">3</span><span class="who" id="whoRed">Toi</span></span>
+    </div>
+    <div class="bag">
+      <span class="swatch blue"></span>
+      <span class="bag-text"><span class="count" id="countBlue">3</span><span class="who" id="whoBlue">Adversaire</span></span>
+    </div>
+  </div>
+
+  <p class="help">Fais glisser le doigt vers l'arrière comme un élastique, puis relâche. Touche la bille de l'autre pour la gagner, sinon tu perds la tienne. Les murs rebondissent et le terrain change la trajectoire.</p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"></script>
+<script>
+(function () {
+  var R = 0.32;
+  var HALF = 6;
+  var WALL_T = 0.6;
+  var WALL_H = 1.0;
+  var STEP = 1 / 120;
+  var V_MAX = 10;
+  var MAX_PULL = 5;
+  var START_STOCK = 3;
+  var NAMES = ['Rouge', 'Bleu'];
+
+  var TERRAINS = {
+    tarmac: { friction: 0.5, damp: 0.42, jitter: 0.09, cell: 0 },
+    plate: { friction: 0.22, damp: 0.26, jitter: 0, cell: 1.5 }
+  };
+
+  var state = {
+    mode: 'solo',
+    terrain: 'tarmac',
+    turn: 0,
+    starter: 0,
+    phase: 'aim',
+    stock: [START_STOCK, START_STOCK],
+    rollTime: 0
+  };
+
+  var stageEl = document.getElementById('stage');
+  var canvas = document.getElementById('gl');
+  var bannerEl = document.getElementById('banner');
+  var bannerTitle = document.getElementById('bannerTitle');
+  var bannerSub = document.getElementById('bannerSub');
+  var nextBtn = document.getElementById('nextBtn');
+  var statusEl = document.getElementById('status');
+  var countRed = document.getElementById('countRed');
+  var countBlue = document.getElementById('countBlue');
+  var whoRed = document.getElementById('whoRed');
+  var whoBlue = document.getElementById('whoBlue');
+
+  /* ---------- Rendu ---------- */
+  var renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.shadowMap.enabled = true;
+
+  var scene = new THREE.Scene();
+  var camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
+
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x555a60, 0.8));
+  var sun = new THREE.DirectionalLight(0xffffff, 0.85);
+  sun.position.set(-6, 14, 6);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(1024, 1024);
+  sun.shadow.camera.left = -9;
+  sun.shadow.camera.right = 9;
+  sun.shadow.camera.top = 9;
+  sun.shadow.camera.bottom = -9;
+  sun.shadow.camera.near = 1;
+  sun.shadow.camera.far = 40;
+  scene.add(sun);
+
+  function makeTexture(c) {
+    var t = new THREE.CanvasTexture(c);
+    t.encoding = THREE.sRGBEncoding;
+    t.anisotropy = 4;
+    return t;
+  }
+
+  function tarmacTexture() {
+    var n = 1024;
+    var c = document.createElement('canvas');
+    c.width = c.height = n;
+    var g = c.getContext('2d');
+    g.fillStyle = '#41464c';
+    g.fillRect(0, 0, n, n);
+    var i, v, s;
+    for (i = 0; i < 30000; i++) {
+      v = 60 + Math.floor(Math.random() * 70);
+      g.fillStyle = 'rgba(' + v + ',' + v + ',' + (v + 4) + ',0.55)';
+      s = 0.8 + Math.random() * 2.2;
+      g.fillRect(Math.random() * n, Math.random() * n, s, s);
+    }
+    for (i = 0; i < 900; i++) {
+      v = 120 + Math.floor(Math.random() * 90);
+      g.fillStyle = 'rgb(' + v + ',' + v + ',' + (v - 6) + ')';
+      g.beginPath();
+      g.arc(Math.random() * n, Math.random() * n, 1.5 + Math.random() * 3.2, 0, Math.PI * 2);
+      g.fill();
+    }
+    return makeTexture(c);
+  }
+
+  function plateTexture() {
+    var n = 1024;
+    var cells = 8;
+    var cs = n / cells;
+    var c = document.createElement('canvas');
+    c.width = c.height = n;
+    var g = c.getContext('2d');
+    g.fillStyle = '#2b2e33';
+    g.fillRect(0, 0, n, n);
+    for (var i = 0; i < cells; i++) {
+      for (var j = 0; j < cells; j++) {
+        var x = i * cs;
+        var y = j * cs;
+        var grad = g.createLinearGradient(x, y, x + cs, y + cs);
+        grad.addColorStop(0, '#5d636b');
+        grad.addColorStop(1, '#383c42');
+        g.fillStyle = grad;
+        g.fillRect(x + 6, y + 6, cs - 12, cs - 12);
+        g.strokeStyle = 'rgba(255,255,255,0.14)';
+        g.lineWidth = 3;
+        g.strokeRect(x + 9, y + 9, cs - 18, cs - 18);
+      }
+    }
+    return makeTexture(c);
+  }
+
+  var textures = { tarmac: tarmacTexture(), plate: plateTexture() };
+
+  var groundMat = new THREE.MeshStandardMaterial({ map: textures.tarmac, roughness: 0.95, metalness: 0 });
+  var groundMesh = new THREE.Mesh(new THREE.PlaneGeometry(HALF * 2, HALF * 2), groundMat);
+  groundMesh.rotation.x = -Math.PI / 2;
+  groundMesh.receiveShadow = true;
+  scene.add(groundMesh);
+
+  var curbMat = new THREE.MeshStandardMaterial({ color: 0xaeb4ba, roughness: 0.9 });
+  function addWallMesh(x, z, w, d) {
+    var m = new THREE.Mesh(new THREE.BoxGeometry(w, WALL_H, d), curbMat);
+    m.position.set(x, WALL_H / 2, z);
+    m.castShadow = true;
+    m.receiveShadow = true;
+    scene.add(m);
+  }
+
+  function marbleTexture(base) {
+    var c = document.createElement('canvas');
+    c.width = 256;
+    c.height = 128;
+    var g = c.getContext('2d');
+    g.fillStyle = base;
+    g.fillRect(0, 0, 256, 128);
+    g.strokeStyle = 'rgba(255,255,255,0.75)';
+    g.lineWidth = 14;
+    g.lineCap = 'round';
+    for (var i = 0; i < 4; i++) {
+      var y = 16 + i * 30;
+      g.beginPath();
+      g.moveTo(0, y + Math.sin(i) * 10);
+      for (var x = 0; x <= 256; x += 16) {
+        g.lineTo(x, y + Math.sin((x / 256) * Math.PI * 2 + i) * 10);
+      }
+      g.stroke();
+    }
+    return makeTexture(c);
+  }
+
+  /* ---------- Physique ---------- */
+  var world = new CANNON.World();
+  world.gravity.set(0, -30, 0);
+  world.broadphase = new CANNON.NaiveBroadphase();
+  world.solver.iterations = 14;
+
+  var mGround = new CANNON.Material('ground');
+  var mMarble = new CANNON.Material('marble');
+  var mWall = new CANNON.Material('wall');
+  var cmGround = new CANNON.ContactMaterial(mMarble, mGround, { friction: 0.5, restitution: 0.05 });
+  world.addContactMaterial(cmGround);
+  world.addContactMaterial(new CANNON.ContactMaterial(mMarble, mMarble, { friction: 0.1, restitution: 0.75 }));
+  world.addContactMaterial(new CANNON.ContactMaterial(mMarble, mWall, { friction: 0.05, restitution: 0.85 }));
+
+  var groundBody = new CANNON.Body({ mass: 0, material: mGround });
+  groundBody.addShape(new CANNON.Plane());
+  groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
+  world.addBody(groundBody);
+
+  function addWall(x, z, w, d) {
+    var b = new CANNON.Body({ mass: 0, material: mWall });
+    b.addShape(new CANNON.Box(new CANNON.Vec3(w / 2, WALL_H, d / 2)));
+    b.position.set(x, WALL_H / 2, z);
+    world.addBody(b);
+    addWallMesh(x, z, w, d);
+  }
+  var edge = HALF + WALL_T / 2;
+  var longSide = HALF * 2 + WALL_T * 2;
+  addWall(0, -edge, longSide, WALL_T);
+  addWall(0, edge, longSide, WALL_T);
+  addWall(-edge, 0, WALL_T, HALF * 2);
+  addWall(edge, 0, WALL_T, HALF * 2);
+
+  function makeMarble(color) {
+    var mesh = new THREE.Mesh(
+      new THREE.SphereGeometry(R, 32, 24),
+      new THREE.MeshStandardMaterial({ map: marbleTexture(color), roughness: 0.12, metalness: 0.1 })
+    );
+    mesh.castShadow = true;
+    scene.add(mesh);
+    var body = new CANNON.Body({ mass: 1, material: mMarble });
+    body.addShape(new CANNON.Sphere(R));
+    world.addBody(body);
+    return { mesh: mesh, body: body, cell: null };
+  }
+  var marbles = [makeMarble('#d6402b'), makeMarble('#2e63d8')];
+
+  marbles.forEach(function (m, i) {
+    m.body.addEventListener('collide', function (e) {
+      if (state.phase === 'rolling' && e.body === marbles[1 - i].body) {
+        endRound(state.turn);
+      }
+    });
+  });
+
+  function applyTerrain() {
+    var t = TERRAINS[state.terrain];
+    cmGround.friction = t.friction;
+    marbles.forEach(function (m) {
+      m.body.linearDamping = t.damp;
+      m.body.angularDamping = t.damp;
+      m.cell = null;
+    });
+    groundMat.map = textures[state.terrain];
+    groundMat.needsUpdate = true;
+  }
+
+  function terrainEffects(m) {
+    var v = m.body.velocity;
+    var speed = Math.sqrt(v.x * v.x + v.z * v.z);
+    if (speed < 0.15) {
+      v.set(0, v.y, 0);
+      m.body.angularVelocity.set(0, 0, 0);
+      return;
+    }
+    var t = TERRAINS[state.terrain];
+    if (t.jitter) {
+      var k = Math.min(speed / 6, 1) * t.jitter;
+      v.x += (Math.random() - 0.5) * k;
+      v.z += (Math.random() - 0.5) * k;
+    }
+    if (t.cell) {
+      var key = Math.floor((m.body.position.x + HALF) / t.cell) + ',' + Math.floor((m.body.position.z + HALF) / t.cell);
+      if (m.cell !== null && m.cell !== key && speed > 1) {
+        var a = (Math.random() - 0.5) * 0.12;
+        var c = Math.cos(a);
+        var s = Math.sin(a);
+        var nx = v.x * c - v.z * s;
+        var nz = v.x * s + v.z * c;
+        v.x = nx * 0.985;
+        v.z = nz * 0.985;
+      }
+      m.cell = key;
+    }
+  }
+
+  function allStill() {
+    return marbles.every(function (m) {
+      var v = m.body.velocity;
+      return Math.abs(v.x) + Math.abs(v.z) < 0.01;
+    });
+  }
+
+  function physicsStep() {
+    world.step(STEP);
+    marbles.forEach(terrainEffects);
+    if (state.phase !== 'rolling') return;
+    state.rollTime += STEP;
+    if ((state.rollTime > 0.4 && allStill()) || state.rollTime > 14) {
+      marbles.forEach(function (m) {
+        m.body.velocity.set(0, 0, 0);
+        m.body.angularVelocity.set(0, 0, 0);
+      });
+      state.turn = 1 - state.turn;
+      beginTurn();
+    }
+  }
+
+  /* ---------- Règles ---------- */
+  var botTimer = null;
+
+  function placeMarbles() {
+    var spots = [
+      { x: -(2 + Math.random() * 2), z: (Math.random() * 2 - 1) * 4 },
+      { x: 2 + Math.random() * 2, z: (Math.random() * 2 - 1) * 4 }
+    ];
+    marbles.forEach(function (m, i) {
+      m.body.position.set(spots[i].x, R, spots[i].z);
+      m.body.velocity.set(0, 0, 0);
+      m.body.angularVelocity.set(0, 0, 0);
+      m.body.quaternion.set(0, 0, 0, 1);
+      m.cell = null;
+    });
+  }
+
+  function startRound() {
+    clearTimeout(botTimer);
+    placeMarbles();
+    bannerEl.hidden = true;
+    state.turn = state.starter;
+    beginTurn();
+  }
+
+  function newGame() {
+    state.stock = [START_STOCK, START_STOCK];
+    state.starter = 0;
+    startRound();
+  }
+
+  function beginTurn() {
+    state.phase = 'aim';
+    updateHud();
+    if (state.mode === 'solo' && state.turn === 1) botTurn();
+  }
+
+  function shoot(player, dir, power) {
+    var m = marbles[player];
+    var v = power * V_MAX;
+    m.body.velocity.set(dir.x * v, 0, dir.z * v);
+    m.body.angularVelocity.set((dir.z * v) / R, 0, (-dir.x * v) / R);
+    state.phase = 'rolling';
+    state.rollTime = 0;
+    updateHud();
+  }
+
+  function botTurn() {
+    botTimer = setTimeout(function () {
+      if (state.phase !== 'aim' || state.turn !== 1 || state.mode !== 'solo') return;
+      var me = marbles[1].body.position;
+      var you = marbles[0].body.position;
+      var dx = you.x - me.x;
+      var dz = you.z - me.z;
+      var dist = Math.sqrt(dx * dx + dz * dz);
+      var angle = Math.atan2(dz, dx) + (Math.random() - 0.5) * 0.22;
+      var k = -Math.log(1 - TERRAINS[state.terrain].damp);
+      var v = Math.min(dist * k * (1.05 + Math.random() * 0.35) + 0.4, V_MAX);
+      shoot(1, { x: Math.cos(angle), z: Math.sin(angle) }, v / V_MAX);
+    }, 900);
+  }
+
+  function endRound(winner) {
+    state.phase = 'over';
+    var loser = 1 - winner;
+    state.stock[winner] += 1;
+    state.stock[loser] -= 1;
+    state.starter = 1 - state.starter;
+    var gameOver = state.stock[0] <= 0 || state.stock[1] <= 0;
+    var title;
+    if (state.mode === 'solo') {
+      title = winner === 0 ? "Tu gagnes la bille de l'adversaire !" : 'Tu perds ta bille.';
+    } else {
+      title = NAMES[winner] + ' gagne la bille ' + NAMES[loser].toLowerCase() + ' !';
+    }
+    if (gameOver) title += ' Partie terminée.';
+    bannerTitle.textContent = title;
+    bannerSub.textContent = 'Billes : ' + state.stock[0] + ' contre ' + state.stock[1];
+    nextBtn.textContent = gameOver ? 'Nouvelle partie' : 'Manche suivante';
+    nextBtn.dataset.gameOver = gameOver ? '1' : '';
+    bannerEl.hidden = false;
+    updateHud();
+  }
+
+  function updateHud() {
+    countRed.textContent = state.stock[0];
+    countBlue.textContent = state.stock[1];
+    whoRed.textContent = state.mode === 'solo' ? 'Toi (rouge)' : 'Rouge';
+    whoBlue.textContent = state.mode === 'solo' ? 'Adversaire (bleu)' : 'Bleu';
+    var msg = '';
+    if (state.phase === 'aim') {
+      if (state.mode === 'solo') {
+        msg = state.turn === 0 ? "À toi de tirer. Glisse vers l'arrière puis relâche." : "L'adversaire vise...";
+      } else {
+        msg = 'Tour du joueur ' + NAMES[state.turn].toLowerCase() + '.';
+      }
+    } else if (state.phase === 'rolling') {
+      msg = 'Les billes roulent...';
+    }
+    statusEl.textContent = msg;
+  }
+
+  /* ---------- Visée au doigt ---------- */
+  var ray = new THREE.Raycaster();
+  var plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+  var ndc = new THREE.Vector2();
+  var drag = null;
+
+  var dots = [];
+  for (var i = 0; i < 10; i++) {
+    var d = new THREE.Mesh(
+      new THREE.SphereGeometry(0.075, 10, 8),
+      new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 })
+    );
+    d.visible = false;
+    scene.add(d);
+    dots.push(d);
+  }
+
+  function groundPoint(ev) {
+    var r = canvas.getBoundingClientRect();
+    ndc.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
+    ray.setFromCamera(ndc, camera);
+    var out = new THREE.Vector3();
+    return ray.ray.intersectPlane(plane, out) ? out : null;
+  }
+
+  function pullFrom(start, p) {
+    var dx = start.x - p.x;
+    var dz = start.z - p.z;
+    var len = Math.sqrt(dx * dx + dz * dz);
+    if (len < 0.05) return { dir: { x: 1, z: 0 }, power: 0 };
+    return { dir: { x: dx / len, z: dz / len }, power: Math.min(len / MAX_PULL, 1) };
+  }
+
+  function showAim(pull) {
+    var p = marbles[state.turn].body.position;
+    var n = Math.max(1, Math.round(pull.power * 10));
+    dots.forEach(function (dot, idx) {
+      if (idx < n) {
+        dot.visible = true;
+        dot.position.set(p.x + pull.dir.x * (0.7 + idx * 0.5), 0.08, p.z + pull.dir.z * (0.7 + idx * 0.5));
+      } else {
+        dot.visible = false;
+      }
+    });
+  }
+
+  function hideAim() {
+    dots.forEach(function (dot) { dot.visible = false; });
+  }
+
+  function canHumanShoot() {
+    return state.phase === 'aim' && (state.mode === 'duo' || state.turn === 0);
+  }
+
+  canvas.addEventListener('pointerdown', function (ev) {
+    if (!canHumanShoot()) return;
+    var p = groundPoint(ev);
+    if (!p) return;
+    drag = { id: ev.pointerId, start: p, pull: null };
+    canvas.setPointerCapture(ev.pointerId);
+  });
+  canvas.addEventListener('pointermove', function (ev) {
+    if (!drag || ev.pointerId !== drag.id) return;
+    var p = groundPoint(ev);
+    if (!p) return;
+    drag.pull = pullFrom(drag.start, p);
+    showAim(drag.pull);
+  });
+  function endDrag(ev, fire) {
+    if (!drag || ev.pointerId !== drag.id) return;
+    var pull = drag.pull;
+    drag = null;
+    hideAim();
+    if (fire && pull && pull.power > 0.06 && canHumanShoot()) shoot(state.turn, pull.dir, pull.power);
+  }
+  canvas.addEventListener('pointerup', function (ev) { endDrag(ev, true); });
+  canvas.addEventListener('pointercancel', function (ev) { endDrag(ev, false); });
+
+  /* ---------- Commandes de la page ---------- */
+  document.querySelectorAll('[data-mode]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      state.mode = btn.dataset.mode;
+      document.querySelectorAll('[data-mode]').forEach(function (b) {
+        b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
+      });
+      newGame();
+    });
+  });
+  document.querySelectorAll('[data-terrain]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      state.terrain = btn.dataset.terrain;
+      document.querySelectorAll('[data-terrain]').forEach(function (b) {
+        b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
+      });
+      applyTerrain();
+      startRound();
+    });
+  });
+  nextBtn.addEventListener('click', function () {
+    if (nextBtn.dataset.gameOver) newGame();
+    else startRound();
+  });
+
+  /* ---------- Boucle ---------- */
+  function resize() {
+    var w = stageEl.clientWidth;
+    var h = stageEl.clientHeight;
+    if (!w || !h) return;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    var dist = 19.2 * Math.max(1, 1 / camera.aspect) * 1.06;
+    camera.position.set(0, dist * 0.92, dist * 0.38);
+    camera.lookAt(0, 0, 0);
+    camera.updateProjectionMatrix();
+  }
+  if (window.ResizeObserver) new ResizeObserver(resize).observe(stageEl);
+  window.addEventListener('resize', resize);
+
+  var last = performance.now();
+  var acc = 0;
+  function frame(now) {
+    acc += Math.min((now - last) / 1000, 0.05);
+    last = now;
+    var steps = 0;
+    while (acc >= STEP && steps < 12) {
+      physicsStep();
+      acc -= STEP;
+      steps++;
+    }
+    marbles.forEach(function (m) {
+      m.mesh.position.copy(m.body.position);
+      m.mesh.quaternion.copy(m.body.quaternion);
+    });
+    renderer.render(scene, camera);
+    requestAnimationFrame(frame);
+  }
+
+  applyTerrain();
+  resize();
+  newGame();
+  requestAnimationFrame(frame);
+})();
+</script>
