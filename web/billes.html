@@ -63,6 +63,7 @@
   .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
   .num { font-variant-numeric: tabular-nums; color: inherit; opacity: 0.75; }
 
+  [hidden] { display: none !important; }
   .view { display: grid; gap: 14px; }
   .stage {
     position: relative; height: min(64vh, 112vw); min-height: 340px;
@@ -124,7 +125,35 @@
   .chip.r-legend { color: var(--r-legend); }
   .rates { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 6px 14px; font-size: 0.92rem; }
   .rates span { font-variant-numeric: tabular-nums; }
-  .machine { position: relative; height: min(70vh, 128vw); max-height: 640px; min-height: 380px; background: var(--stage); border-radius: 14px; overflow: hidden; }
+  .bag-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chips button {
+    font: 600 13px/1 var(--font-body); padding: 9px 12px; min-height: 36px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--panel); cursor: pointer;
+  }
+  .chips button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .chips .num { margin-left: 4px; }
+  .card { position: relative; }
+  .card .tag {
+    position: absolute; top: 6px; left: 6px; font-size: 0.62rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.06em; background: var(--ink); color: var(--bg); border-radius: 6px; padding: 3px 5px;
+  }
+  .card .check {
+    position: absolute; top: 6px; right: 6px; width: 22px; height: 22px; border-radius: 50%;
+    background: var(--accent); color: #fff; font-weight: 700; font-size: 13px; display: grid; place-items: center;
+  }
+  .discard-mode .card[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 2px var(--accent); }
+  .discard-mode .card[aria-pressed="false"] { opacity: 0.8; }
+  .discard-bar {
+    position: sticky; bottom: calc(env(safe-area-inset-bottom, 0px) + 8px); z-index: 5;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px;
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  }
+  .discard-info { display: grid; gap: 2px; min-width: 0; }
+  .discard-info strong { font-variant-numeric: tabular-nums; }
+  .discard-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .machine { position: relative; width: 100%; aspect-ratio: 1 / 1; max-height: 72vh; background: var(--stage); border-radius: 14px; overflow: hidden; }
   .machine canvas { display: block; width: 100%; height: 100%; }
   .reveal .card { animation: pop 0.55s cubic-bezier(0.2, 0.9, 0.3, 1.25) both; }
   @keyframes pop { from { opacity: 0; transform: scale(0.6) rotate(-8deg); } to { opacity: 1; transform: none; } }
@@ -180,13 +209,24 @@
   </section>
 
   <section class="view" id="view-bag" hidden>
-    <h2>Mon sac</h2>
-    <p class="note" id="bagHint">Touche une bille pour la choisir comme bille de jeu.</p>
-    <div class="row">
-      <button type="button" class="ghost" id="discardToggle">Défausser des billes</button>
-      <button type="button" class="primary" id="discardConfirm" hidden>Défausser 3 billes contre 1 ticket</button>
+    <div class="bag-head">
+      <h2>Mon sac</h2>
+      <button type="button" class="ghost" id="discardToggle">Défausser</button>
     </div>
+    <p class="note" id="bagHint" aria-live="polite"></p>
+    <div class="chips" role="group" aria-label="Filtrer par rareté" id="bagFilters"></div>
     <div class="grid" id="bagGrid"></div>
+    <div class="discard-bar" id="discardBar" hidden>
+      <div class="discard-info">
+        <strong id="discardCount"></strong>
+        <span class="note" id="discardGain"></span>
+      </div>
+      <div class="discard-actions">
+        <button type="button" class="ghost" id="selectAllBtn">Tout sélectionner</button>
+        <button type="button" class="ghost" id="clearSelBtn">Effacer</button>
+        <button type="button" class="primary" id="discardConfirm">Défausser</button>
+      </div>
+    </div>
   </section>
 
   <section class="view" id="view-pack" hidden>
@@ -1324,64 +1364,131 @@
     $('setup').querySelectorAll('button').forEach(function (b) { if (b.id !== 'botBtn') b.disabled = game.active; });
   }
 
-  function renderBag() {
-    renderDiscard();
-    $('bagCount').textContent = bag.marbles.length;
-    const grid = $('bagGrid');
-    grid.replaceChildren();
-    if (!bag.marbles.length) {
-      const p = document.createElement('p');
-      p.className = 'note';
-      p.textContent = 'Ton sac est vide. Lance des billes dans la machine pour en gagner.';
-      grid.append(p);
-      return;
-    }
-    bag.marbles.slice().sort(byRarity).forEach(function (def) {
-      if (discard.on) {
-        grid.append(cardEl(def, function () {
-          if (discard.picked.has(def.uid)) discard.picked.delete(def.uid);
-          else if (discard.picked.size < DISCARD_COUNT) discard.picked.add(def.uid);
-          renderBag();
-        }, discard.picked.has(def.uid)));
-        return;
-      }
-      grid.append(cardEl(def, function () {
-        if (game.active) return;
-        bag.stakeUid = def.uid;
-        persist();
-        showView('play');
-        showIdle();
-        renderAll();
-      }, def.uid === bag.stakeUid));
+  /* Sac : filtre par rareté, choix de la bille de jeu, et défausse de 3 billes contre 1 ticket (autant de lots qu'on veut). */
+  const DISCARD_COUNT = 3;
+  const bagUi = { filter: 'all', discarding: false, picked: [] };
+
+  function renderBagFilters() {
+    const box = $('bagFilters');
+    box.replaceChildren();
+    const counts = { all: bag.marbles.length };
+    bag.marbles.forEach(function (m) { counts[rarityOf(m)] = (counts[rarityOf(m)] || 0) + 1; });
+    const labels = { all: 'Toutes', common: 'Communes', uncommon: 'Peu communes', rare: 'Rares', legend: 'Légendaires' };
+    Object.keys(labels).forEach(function (id) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.setAttribute('aria-pressed', bagUi.filter === id ? 'true' : 'false');
+      b.textContent = labels[id];
+      const n = document.createElement('span');
+      n.className = 'num';
+      n.textContent = counts[id] || 0;
+      b.append(n);
+      b.addEventListener('click', function () { bagUi.filter = id; renderBag(); });
+      box.append(b);
     });
   }
 
-  /* Défausse : 3 billes du sac contre 1 ticket. Impossible pendant une partie, la bille en jeu doit rester dans le sac. */
-  const DISCARD_COUNT = 3;
-  const discard = { on: false, picked: new Set() };
+  const visibleMarbles = () => bag.marbles
+    .filter((m) => bagUi.filter === 'all' || rarityOf(m) === bagUi.filter)
+    .sort(byRarity);
 
-  function renderDiscard() {
-    const toggle = $('discardToggle');
-    const confirm = $('discardConfirm');
-    if (game.active) { discard.on = false; discard.picked.clear(); }
-    discard.picked.forEach(function (uid) { if (!bag.marbles.some((m) => m.uid === uid)) discard.picked.delete(uid); });
-    toggle.disabled = game.active || (!discard.on && bag.marbles.length < DISCARD_COUNT);
-    toggle.textContent = discard.on ? 'Annuler' : 'Défausser des billes';
-    confirm.hidden = !discard.on;
-    confirm.disabled = discard.picked.size !== DISCARD_COUNT;
-    confirm.textContent = 'Défausser ' + discard.picked.size + '/' + DISCARD_COUNT + ' billes contre 1 ticket';
-    $('bagHint').textContent = discard.on
-      ? 'Choisis ' + DISCARD_COUNT + ' billes à défausser.'
-      : 'Touche une bille pour la choisir comme bille de jeu.';
+  function togglePick(uid) {
+    const i = bagUi.picked.indexOf(uid);
+    if (i >= 0) bagUi.picked.splice(i, 1); else bagUi.picked.push(uid);
+    renderBag();
   }
 
+  function renderBag() {
+    if (game.active && bagUi.discarding) { bagUi.discarding = false; bagUi.picked = []; }
+    bagUi.picked = bagUi.picked.filter((uid) => bag.marbles.some((m) => m.uid === uid));
+    $('bagCount').textContent = bag.marbles.length;
+    renderBagFilters();
+    renderDiscardBar();
+    const grid = $('bagGrid');
+    grid.classList.toggle('discard-mode', bagUi.discarding);
+    grid.replaceChildren();
+    const list = visibleMarbles();
+    if (!list.length) {
+      const p = document.createElement('p');
+      p.className = 'note';
+      p.textContent = bag.marbles.length ? 'Aucune bille de cette rareté.' : 'Ton sac est vide. Lance des billes dans la machine pour en gagner.';
+      grid.append(p);
+      return;
+    }
+    list.forEach(function (def) {
+      const picked = bagUi.picked.includes(def.uid);
+      const card = bagUi.discarding
+        ? cardEl(def, function () { togglePick(def.uid); }, picked)
+        : cardEl(def, function () {
+          if (game.active) return;
+          bag.stakeUid = def.uid;
+          persist();
+          showView('play');
+          showIdle();
+          renderAll();
+        }, def.uid === bag.stakeUid);
+      if (def.uid === bag.stakeUid) {
+        const tag = document.createElement('span');
+        tag.className = 'tag';
+        tag.textContent = 'En jeu';
+        card.append(tag);
+      }
+      if (bagUi.discarding && picked) {
+        const check = document.createElement('span');
+        check.className = 'check';
+        check.setAttribute('aria-hidden', 'true');
+        check.textContent = '✓';
+        card.append(check);
+      }
+      grid.append(card);
+    });
+  }
+
+  function renderDiscardBar() {
+    const n = bagUi.picked.length;
+    const lots = Math.floor(n / DISCARD_COUNT);
+    const missing = (DISCARD_COUNT - (n % DISCARD_COUNT)) % DISCARD_COUNT;
+    const toggle = $('discardToggle');
+    toggle.textContent = bagUi.discarding ? 'Terminer' : 'Défausser';
+    toggle.disabled = game.active || (!bagUi.discarding && bag.marbles.length < DISCARD_COUNT);
+    $('discardBar').hidden = !bagUi.discarding;
+    if (!bagUi.discarding) {
+      if (!bagUi.flash) $('bagHint').textContent = 'Touche une bille pour la choisir comme bille de jeu.';
+      return;
+    }
+    if (!bagUi.flash) $('bagHint').textContent = 'Sélectionne les billes à défausser. Chaque lot de ' + DISCARD_COUNT + ' billes donne 1 ticket.';
+    $('discardCount').textContent = n + (n > 1 ? ' billes sélectionnées' : ' bille sélectionnée');
+    let gain;
+    if (!n) gain = 'Touche des billes pour les sélectionner.';
+    else if (!lots) gain = 'Encore ' + missing + ' pour 1 ticket.';
+    else gain = 'Donne ' + ticketsText(lots) + (missing ? '. ' + (n % DISCARD_COUNT) + ' en trop resteront dans ton sac.' : '.');
+    $('discardGain').textContent = gain;
+    const confirm = $('discardConfirm');
+    confirm.disabled = !lots;
+    confirm.textContent = lots ? 'Défausser ' + lots * DISCARD_COUNT + ' billes, +' + ticketsText(lots) : 'Défausser';
+    $('clearSelBtn').disabled = !n;
+  }
+
+  function selectAllVisible() {
+    visibleMarbles().forEach(function (m) {
+      if (m.uid !== bag.stakeUid && !bagUi.picked.includes(m.uid)) bagUi.picked.push(m.uid);
+    });
+    renderBag();
+  }
+
+  /* On défausse des lots complets : les billes choisies en dernier qui ne forment pas un lot restent sélectionnées. */
   function confirmDiscard() {
-    if (game.active || discard.picked.size !== DISCARD_COUNT) return;
-    bag.marbles = bag.marbles.filter((m) => !discard.picked.has(m.uid));
-    if (discard.picked.has(bag.stakeUid)) bag.stakeUid = null;
-    discard.picked.clear();
-    bag.tickets += 1;
+    const lots = Math.floor(bagUi.picked.length / DISCARD_COUNT);
+    if (game.active || !lots) return;
+    const gone = new Set(bagUi.picked.slice(0, lots * DISCARD_COUNT));
+    bagUi.picked = bagUi.picked.slice(lots * DISCARD_COUNT);
+    bag.marbles = bag.marbles.filter((m) => !gone.has(m.uid));
+    if (gone.has(bag.stakeUid)) bag.stakeUid = null;
+    bag.tickets += lots;
     persist();
+    bagUi.flash = true;
+    $('bagHint').textContent = gone.size + ' billes défaussées : +' + ticketsText(lots) + ' !';
+    setTimeout(function () { bagUi.flash = false; renderDiscardBar(); }, 2500);
     renderAll();
     if (!game.active) showIdle();
   }
@@ -1547,10 +1654,12 @@
   $('botBtn').addEventListener('click', startBotMatch);
   $('claimBtn').addEventListener('click', claimTickets);
   $('discardToggle').addEventListener('click', function () {
-    discard.on = !discard.on;
-    discard.picked.clear();
+    bagUi.discarding = !bagUi.discarding;
+    bagUi.picked = [];
     renderBag();
   });
+  $('selectAllBtn').addEventListener('click', selectAllVisible);
+  $('clearSelBtn').addEventListener('click', function () { bagUi.picked = []; renderBag(); });
   $('discardConfirm').addEventListener('click', confirmDiscard);
   /* Bouton de test : donne des tickets tout de suite pour essayer la machine. */
   $('testTicketsBtn').addEventListener('click', function () {
