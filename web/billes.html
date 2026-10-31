@@ -168,7 +168,7 @@
       <div class="row">
         <button type="button" class="primary" id="botBtn">Jouer contre l'ordi</button>
       </div>
-      <p class="note">Les deux joueurs jouent une bille de même rareté. Le gagnant remporte des tickets : 1 pour une commune, 2 pour une peu commune, 4 pour une rare, 8 pour une légendaire. Tu gardes toujours ta bille.</p>
+      <p class="note">Les deux joueurs jouent une bille de même rareté. Le gagnant remporte des tickets : 1 pour une commune, 2 pour une peu commune, 4 pour une rare, 8 pour une légendaire. Le perdant perd sa bille.</p>
     </div>
 
     <div class="panel" id="lobby">
@@ -767,6 +767,11 @@
 
   const getStake = () => bag.marbles.find((m) => m.uid === bag.stakeUid) || null;
 
+  function removeMarble(uid) {
+    bag.marbles = bag.marbles.filter((m) => m.uid !== uid);
+    if (bag.stakeUid === uid) bag.stakeUid = null;
+  }
+
   /* ================= Partie ================= */
   const game = {
     active: false, mode: null, phase: 'idle', turn: 0, rollTime: 0, trackAcc: 0,
@@ -863,7 +868,9 @@
       persist();
       showBanner('Tu gagnes ' + label + ' !', 'Va les jouer dans la machine à billes.', game.my);
     } else {
-      showBanner('Perdu, pas de ticket.', game.oppName + ' remporte ' + label + '. Tu gardes ta bille.', game.my);
+      removeMarble(game.my.uid);
+      persist();
+      showBanner('Tu perds ta bille.', game.oppName + ' remporte ' + label + '.', game.my);
     }
     setStatus('');
     renderAll();
