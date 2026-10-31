@@ -601,12 +601,19 @@
     '    float ridge = 1.0 - abs(2.0 * noise3(q * 7.0 + uSeed * 13.0) - 1.0);',
     '    float frost = (0.008 + 0.3 * pow(ridge, 10.0)) * smoothstep(0.66, 0.5, r);',
     '    return pick(o, vec3(1.05, 1.05, 1.08), frost); }',
-    '  float u = q.y * (2.0 + uWidth * 3.0) + phi / 6.28318 * sign(uTwist) + uSeed * 4.0;',
-    '  float b = fract(u * 2.0); float idx = mod(floor(u * 2.0), 4.0);',
-    '  float band = smoothstep(0.0, 0.05, b) * smoothstep(0.3, 0.24, b);',
-    '  float shell = smoothstep(0.74, 0.8, r) * smoothstep(0.94, 0.89, r);',
-    '  vec3 c = idx < 0.5 ? uC1 : (idx < 1.5 ? vec3(0.96) : (idx < 2.5 ? uC2 : uC3));',
-    '  return vec4(c, band * shell * step(0.5, abs(idx - 1.0))); }',
+    /* Variantes 1 et 3 : rubans épais empilés en spirale à l'intérieur du verre, deux couleurs collées (opaques ou translucides). */
+    '  float u = q.y * (1.6 + uWidth * 2.0) + phi / 6.28318 * sign(uTwist) + uSeed * 4.0;',
+    '  float f = fract(u);',
+    '  float rho = length(q.xz);',
+    '  float inR = smoothstep(0.1, 0.18, rho) * smoothstep(0.64, 0.56, rho) * smoothstep(0.86, 0.78, abs(q.y));',
+    '  float a1 = smoothstep(0.0, 0.03, f) * smoothstep(0.26, 0.23, f);',
+    '  float a2 = smoothstep(0.26, 0.29, f) * smoothstep(0.46, 0.43, f);',
+    '  vec3 c = a1 > a2 ? uC1 : (mod(floor(u), 2.0) < 0.5 ? uC2 : vec3(0.97));',
+    '  float pos = a1 > a2 ? f / 0.26 : (f - 0.26) / 0.2;',
+    '  c *= 0.72 + 0.38 * sin(3.14159 * clamp(pos, 0.0, 1.0));',
+    '  float dens = max(a1, a2) * inR;',
+    '  if (uVariant > 2.5) { dens *= 0.08; c = mix(c, vec3(1.0), 0.15) * 1.3; }',
+    '  return vec4(c, dens); }',
     /* Tornade : un seul ruban plat au centre, torsadé plusieurs tours, une couleur par face. */
     'vec4 tornadoRibbon(vec3 q) {',
     '  float a = q.y * uTwist + uSeed * 6.28318;',
@@ -646,6 +653,11 @@
     '  if (uType == 2) { float v = dot(p, normalize(vec3(0.3, 1.0, 0.2))) * 6.0 + fbm(p * 2.0 + uSeed * 7.0) * 5.0; float b = fract(v);',
     '    return b < 0.3 ? vec3(0.32, 0.14, 0.05) : (b < 0.55 ? uC1 : (b < 0.8 ? vec3(0.85, 0.72, 0.55) : vec3(0.55, 0.3, 0.12))); }',
     '  if (uType == 3) { float st = smoothstep(0.44, 0.54, fbm(vec3(p.x * 1.6, p.y * 4.5, p.z * 1.6) + uSeed * 4.0)); return mix(vec3(0.88, 0.84, 0.76), vec3(0.32, 0.02, 0.03), st); }',
+    '  if (uType == 7) { float phi = atan(p.z, p.x); float u = p.y * (2.0 + uWidth * 3.0) + phi / 6.28318 * sign(uTwist) + uSeed * 4.0 + fbm(p * 3.0 + uSeed * 5.0) * 0.15;',
+    '    float b = fract(u * 2.0); float idx = mod(floor(u * 2.0), 3.0);',
+    '    float band = smoothstep(0.0, 0.04, b) * smoothstep(0.3, 0.24, b);',
+    '    vec3 c = idx < 0.5 ? uC1 : (idx < 1.5 ? uC2 : vec3(0.98));',
+    '    return mix(mix(vec3(0.94, 0.93, 0.9), uC3, 0.85), c, band); }',
     '  if (uType == 13) { float wear = smoothstep(0.55, 0.75, fbm(p * 5.0 + uSeed * 3.0)); return mix(uC1 * (0.8 + 0.3 * fbm(p * 9.0)), vec3(0.55, 0.3, 0.18), wear); }',
     '  if (uType == 17) { float phi = atan(p.z, p.x); float u = phi / 6.28318 * 12.0 + uSeed * 12.0; float line = smoothstep(0.1, 0.05, abs(fract(u) - 0.5) - 0.33);',
     '    return mix(vec3(0.93, 0.93, 0.9), mod(floor(u), 2.0) < 0.5 ? uC1 : uC2, 1.0 - line); }',
@@ -659,7 +671,7 @@
     '  float F = 0.04 + 0.96 * pow(1.0 - cosi, 5.0);',
     '  vec3 refl = env(normalize(uRot * reflect(v, n)));',
     '  vec3 col;',
-    '  bool solid = uType <= 5 || uType == 13 || uType == 17;',
+    '  bool solid = uType <= 5 || uType == 13 || uType == 17 || (uType == 7 && uVariant > 1.5);',
     '  if (solid) {',
     '    vec3 nW = normalize(uRot * n);',
     '    vec3 alb = solidAlbedo(p, cosi);',
@@ -705,7 +717,9 @@
 
   const TYPE_ID = { opaque: 0, milky: 1, agate: 2, oxblood: 3, pearl: 4, onion: 5, cateye: 6, swirl: 7, tornado: 8, mica: 9, lutz: 10, sulphide: 11, clear: 12, clay: 13, nugget: 14, galaxy: 15, spider: 16, clambroth: 17, sulphide2: 18 };
   const GLASS_TYPES = ['cateye', 'swirl', 'tornado', 'mica', 'lutz', 'sulphide', 'clear', 'nugget', 'galaxy', 'spider', 'sulphide2'];
-  const isGlass = (def) => GLASS_TYPES.includes(def.type);
+  /* Tourbillon : 0 fil fin et cœur argenté, 1 rubans épais opaques dans le verre, 2 bille opaque à rubans, 3 rubans de verre coloré translucide. */
+  const swirlVariantOf = (def) => { const x = rng(def.seed + 11)(); return x < 0.3 ? 0 : x < 0.65 ? 1 : x < 0.8 ? 2 : 3; };
+  const isGlass = (def) => GLASS_TYPES.includes(def.type) && !(def.type === 'swirl' && swirlVariantOf(def) === 2);
   const SUN_DIR = new THREE.Vector3(-6, 14, 6).normalize();
   const GROUND_DUEL = new THREE.Color(0x6b737b).convertSRGBToLinear();
   const GROUND_THUMB = new THREE.Color(0xb8bec5).convertSRGBToLinear();
@@ -722,7 +736,7 @@
     /* Tourbillon : verre clair, turquoise, bleu ou ambre, comme sur les vraies billes. */
     const swirlTint = [null, 185, 215, 40][Math.floor(rng(def.seed + 3)() * 4)];
     const tint = def.type === 'swirl' ? linColor(swirlTint || 0, 0.55, 0.6) : linColor(h, 0.7, 0.45);
-    const swirlVariant = def.type === 'swirl' && r() < 0.55 ? 0 : 1;
+    const swirlVariant = def.type === 'swirl' ? swirlVariantOf(def) : 1;
     const strength = def.type === 'swirl' ? (swirlVariant === 0 && swirlTint ? 0.9 : undefined) : { mica: 2.2, lutz: 2.2, galaxy: 3.2, clear: 1.1, nugget: 0.9 }[def.type];
     const absorb = strength
       ? new THREE.Vector3(1 - tint.r, 1 - tint.g, 1 - tint.b).multiplyScalar(strength)
