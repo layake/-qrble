@@ -164,6 +164,7 @@
 <div class="app">
   <header>
     <h1>Billes</h1>
+    <button type="button" class="ghost" id="soundBtn" aria-pressed="true">Son : oui</button>
     <nav class="tabs" aria-label="Sections">
       <button type="button" data-view="play" aria-current="true">Jouer</button>
       <button type="button" data-view="bag" aria-current="false">Sac <span class="num" id="bagCount">0</span></button>
@@ -193,6 +194,7 @@
         <div class="seg" role="group" aria-label="Terrain">
           <button type="button" data-terrain="tarmac" aria-pressed="true">Goudron</button>
           <button type="button" data-terrain="plate" aria-pressed="false">Plaque d'égout</button>
+          <button type="button" data-terrain="terre" aria-pressed="false">Terre</button>
         </div>
       </div>
       <div class="row">
@@ -275,7 +277,8 @@
   const TERRAINS = {
     /* roll : résistance au roulement (décélération constante en unités/s²), sand : petits écarts dus au sable. */
     tarmac: { friction: 0.6, roll: 7, sand: 0.03 },
-    plate: { friction: 0.35, roll: 3.5, sand: 0 }
+    plate: { friction: 0.35, roll: 3.5, sand: 0 },
+    terre: { friction: 0.8, roll: 13, sand: 0.14 }
   };
 
   const RARITIES = {
@@ -598,7 +601,7 @@
   const tarmacTex = tarmacMaps();
   const tarmacMat = new THREE.MeshStandardMaterial({ map: tarmacTex.map, bumpMap: tarmacTex.bump, bumpScale: 0.9, roughness: 0.9, metalness: 0 });
 
-  function groundShape(hole) {
+  function groundShape(hole, mat) {
     const s = new THREE.Shape();
     s.moveTo(-40, -40); s.lineTo(40, -40); s.lineTo(40, 40); s.lineTo(-40, 40); s.lineTo(-40, -40);
     if (hole) {
@@ -606,7 +609,7 @@
       hp.absarc(0, 0, hole, 0, Math.PI * 2, true);
       s.holes.push(hp);
     }
-    const m = new THREE.Mesh(new THREE.ShapeGeometry(s, 96), tarmacMat);
+    const m = new THREE.Mesh(new THREE.ShapeGeometry(s, 96), mat || tarmacMat);
     m.rotation.x = -Math.PI / 2;
     m.receiveShadow = true;
     scene.add(m);
@@ -642,6 +645,117 @@
   const ironMat = new THREE.MeshStandardMaterial({ color: 0x2b2c2e, roughness: 0.62, metalness: 0.5 });
   const ironTopMat = new THREE.MeshStandardMaterial({ color: 0x46494c, roughness: 0.5, metalness: 0.45, envMapIntensity: 0.35 });
   const ironFaces = [ironMat, ironMat, ironTopMat, ironMat, ironMat, ironMat];
+  /* Terre battue (cour d'école, parc) : terre tassée, sable, petits cailloux. La bille s'y arrête vite.
+     Au centre, le « pot » : un trou en cuvette, il faut un tir fort pour en ressortir. Bordure en planches. */
+  const POT = { r: 1.3, depth: 0.45 };
+  const TERRE_TILE = 8;
+  function terreMaps() {
+    const n = 1024;
+    const c = document.createElement('canvas');
+    c.width = c.height = n;
+    const g = c.getContext('2d');
+    const b = document.createElement('canvas');
+    b.width = b.height = n;
+    const bg = b.getContext('2d');
+    const r = rng(303);
+    g.fillStyle = '#7a5b3f';
+    g.fillRect(0, 0, n, n);
+    bg.fillStyle = 'rgb(110,110,110)';
+    bg.fillRect(0, 0, n, n);
+    for (let i = 0; i < 60; i++) {
+      const cx = r() * n;
+      const cz = r() * n;
+      const rad = 60 + r() * 180;
+      const light = r() < 0.5;
+      for (const [ox, oz] of [[0, 0], [-n, 0], [n, 0], [0, -n], [0, n]]) {
+        const gr = g.createRadialGradient(cx + ox, cz + oz, 0, cx + ox, cz + oz, rad);
+        gr.addColorStop(0, light ? 'rgba(160,128,92,0.28)' : 'rgba(70,48,30,0.28)');
+        gr.addColorStop(1, 'rgba(0,0,0,0)');
+        g.fillStyle = gr;
+        g.fillRect(cx + ox - rad, cz + oz - rad, rad * 2, rad * 2);
+      }
+    }
+    for (let i = 0; i < 70000; i++) {
+      const x = r() * n;
+      const z = r() * n;
+      const l = r();
+      g.fillStyle = 'rgba(' + (110 + l * 90 | 0) + ',' + (85 + l * 70 | 0) + ',' + (60 + l * 50 | 0) + ',0.6)';
+      g.fillRect(x, z, 1 + r() * 1.5, 1 + r() * 1.5);
+      if (i % 3 === 0) { bg.fillStyle = 'rgba(160,160,160,0.5)'; bg.fillRect(x, z, 1.5, 1.5); }
+    }
+    for (let i = 0; i < 500; i++) {
+      const x = r() * n;
+      const z = r() * n;
+      const rad = 1.5 + r() * 4.5;
+      const l = 90 + r() * 70;
+      const gr = g.createRadialGradient(x - rad * 0.3, z - rad * 0.3, 0, x, z, rad);
+      gr.addColorStop(0, 'rgb(' + (l + 30 | 0) + ',' + (l + 22 | 0) + ',' + (l + 10 | 0) + ')');
+      gr.addColorStop(1, 'rgb(' + (l * 0.6 | 0) + ',' + (l * 0.52 | 0) + ',' + (l * 0.45 | 0) + ')');
+      g.fillStyle = gr;
+      g.beginPath(); g.ellipse(x, z, rad, rad * (0.6 + r() * 0.4), r() * 3, 0, 6.283); g.fill();
+      bg.fillStyle = 'rgb(220,220,220)';
+      bg.beginPath(); bg.arc(x, z, rad, 0, 6.283); bg.fill();
+    }
+    const map = makeTexture(c);
+    const bump = new THREE.CanvasTexture(b);
+    [map, bump].forEach(function (t) {
+      t.wrapS = t.wrapT = THREE.RepeatWrapping;
+      t.repeat.set(1 / TERRE_TILE, 1 / TERRE_TILE);
+      t.anisotropy = 8;
+    });
+    return { map: map, bump: bump };
+  }
+  const terreTex = terreMaps();
+  const terreMat = new THREE.MeshStandardMaterial({ map: terreTex.map, bumpMap: terreTex.bump, bumpScale: 1.2, roughness: 1, metalness: 0 });
+  const terreGround = groundShape(POT.r, terreMat);
+  terreGround.visible = false;
+  const potDepthAt = (x, z) => { const d2 = (x * x + z * z) / (POT.r * POT.r); return d2 < 1 ? POT.depth * (1 - d2) : 0; };
+  const potMesh = (function () {
+    const geo = new THREE.RingGeometry(0.0001, POT.r, 64, 14);
+    const pos = geo.attributes.position;
+    const uv = geo.attributes.uv;
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i);
+      const y = pos.getY(i);
+      pos.setZ(i, -potDepthAt(x, y));
+      uv.setXY(i, x, y);
+    }
+    geo.computeVertexNormals();
+    /* Le fond du pot est plus sombre (ombre et terre remuée) pour qu'on le repère bien. */
+    const potMat = terreMat.clone();
+    potMat.color.setHex(0x8a7866);
+    const m = new THREE.Mesh(geo, potMat);
+    m.rotation.x = -Math.PI / 2;
+    m.receiveShadow = true;
+    m.visible = false;
+    scene.add(m);
+    return m;
+  })();
+  const woodMat = new THREE.MeshStandardMaterial({ map: (function () {
+    const c = document.createElement('canvas');
+    c.width = 512; c.height = 64;
+    const g = c.getContext('2d');
+    const r = rng(41);
+    g.fillStyle = '#8a6440';
+    g.fillRect(0, 0, 512, 64);
+    for (let i = 0; i < 40; i++) {
+      g.strokeStyle = 'rgba(' + (60 + r() * 40 | 0) + ',' + (40 + r() * 25 | 0) + ',20,0.45)';
+      g.lineWidth = 1 + r() * 2;
+      g.beginPath();
+      const y = r() * 64;
+      g.moveTo(0, y);
+      for (let x = 0; x <= 512; x += 32) g.lineTo(x, y + Math.sin(x / 60 + i) * 3);
+      g.stroke();
+    }
+    const t = makeTexture(c);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.repeat.set(3, 1);
+    return t;
+  })(), roughness: 0.85 });
+  const terreGroup = new THREE.Group();
+  terreGroup.visible = false;
+  scene.add(terreGroup);
+
   const coverGroup = new THREE.Group();
   const tarmacGroup = new THREE.Group();
   scene.add(coverGroup);
@@ -693,6 +807,11 @@
     /* Le mur physique monte haut (invisible) : aucune bille ne peut passer par-dessus, même en sautant. */
     tarmacBodies.push(addBox(w[0], 1.25, w[1], w[2], 3.5, w[3], mWall, m));
     m.position.y = WALL_H / 2 - 0.25;
+    const plank = new THREE.Mesh(new THREE.BoxGeometry(w[2], WALL_H + 0.5, w[3]), woodMat);
+    plank.position.copy(m.position);
+    plank.castShadow = true;
+    plank.receiveShadow = true;
+    terreGroup.add(plank);
   });
 
   /* Plaque : fond des cases, quadrillage en relief coupé par le cercle, cadre rond. */
@@ -1251,13 +1370,24 @@
       m.shadow.visible = m.mesh.visible;
       if (!m.mesh.visible) return;
       const p = m.mesh.position;
-      m.shadow.position.set(p.x + R * 0.38, Math.max(p.y - R, groundY()) + 0.004, p.z - R * 0.38);
+      const floorY = terrain === 'terre' ? p.y - R - potDepthAt(p.x + R * 0.38, p.z - R * 0.38) + potDepthAt(p.x, p.z) : Math.max(p.y - R, groundY());
+      m.shadow.position.set(p.x + R * 0.38, floorY + 0.004, p.z - R * 0.38);
     });
   }
 
   marbles.forEach(function (m, i) {
     m.body.addEventListener('collide', function (e) {
-      if (game.phase === 'rolling' && e.body === marbles[1 - i].body) finish(game.turn);
+      const iv = Math.abs(e.contact.getImpactVelocityAlongNormal());
+      if (e.body === marbles[1 - i].body) {
+        if (i === 0 && iv > 0.3) { playClink(iv); buzz(20 + Math.min(40, iv * 4)); }
+        if (game.phase === 'rolling') finish(game.turn);
+      } else if (e.body.material === mWall) {
+        if (iv > 0.5) playThud(iv);
+      } else if (terrain === 'plate' && e.body !== groundBody) {
+        if (iv > 0.6) playClack(iv);
+      } else if (iv > 2.5) {
+        playThud(iv * 0.4);
+      }
     });
   });
 
@@ -1274,10 +1404,14 @@
       m.body.angularDamping = 0.01;
     });
     groundBody.position.y = groundY();
-    tarmacFull.visible = !plate;
+    const terre = name === 'terre';
+    tarmacFull.visible = name === 'tarmac';
     tarmacAround.visible = plate;
     coverGroup.visible = plate;
-    tarmacGroup.visible = !plate;
+    tarmacGroup.visible = name === 'tarmac';
+    terreGround.visible = terre;
+    potMesh.visible = terre;
+    terreGroup.visible = terre;
     coverBodies.forEach(function (b) { b.position.y = plate ? b.restY : -50; b.aabbNeedsUpdate = true; });
     tarmacBodies.forEach(function (b) { b.position.y = plate ? -50 : b.restY; b.aabbNeedsUpdate = true; });
     document.querySelectorAll('[data-terrain]').forEach(function (b) {
@@ -1338,6 +1472,17 @@
       const f = Math.max(0, speed - t.roll * STEP) / speed;
       v.x *= f; v.z *= f;
       w.x *= f; w.y *= f; w.z *= f;
+    }
+    if (terrain === 'terre') {
+      const p = m.body.position;
+      if (potDepthAt(p.x, p.z) > 0) {
+        const k = (G * 2 * POT.depth) / (POT.r * POT.r);
+        v.x -= k * p.x * STEP;
+        v.z -= k * p.z * STEP;
+      }
+      const kk = Math.min(speed / 6, 1) * t.sand;
+      v.x += (Math.random() - 0.5) * kk;
+      v.z += (Math.random() - 0.5) * kk;
     }
     if (terrain === 'tarmac') {
       stoneAccel(m.body.position.x, m.body.position.z, stoneOut);
@@ -1496,7 +1641,7 @@
       const dist = Math.sqrt(dx * dx + dz * dz);
       const angle = Math.atan2(dz, dx) + (Math.random() - 0.5) * 0.22;
       let v;
-      if (terrain === 'plate') {
+      if (terrain === 'plate' || (terrain === 'terre' && potDepthAt(me.x, me.z) > 0)) {
         v = V_MAX * (0.65 + Math.random() * 0.35);
       } else {
         /* Distance d'arrêt avec décélération constante : d = v² / 2a, donc v = racine(2·a·d). */
@@ -1520,6 +1665,9 @@
     if (!game.active || game.phase === 'over') return;
     game.phase = 'over';
     clearTimeout(botTimer);
+    /* Petit ralenti au moment où les billes se touchent. */
+    game.slowUntil = performance.now() + 900;
+    setTimeout(winner === 0 ? playWin : playLose, 500);
     if (game.net && winner === 0) sendNet('result', { p: netState() });
     const prize = TICKETS_BY_RARITY[rarityOf(game.my)];
     const label = prize + (prize > 1 ? ' tickets' : ' ticket');
@@ -1726,7 +1874,7 @@
       net.room.emit('answer', { to: msg.peer, gid: d.gid, accept: false, busy: true }).catch(function () {});
       return;
     }
-    net.incoming = { from: msg.peer, by: msg.by, gid: d.gid, marble: marble, terrain: d.terrain === 'plate' ? 'plate' : 'tarmac' };
+    net.incoming = { from: msg.peer, by: msg.by, gid: d.gid, marble: marble, terrain: (['tarmac', 'plate', 'terre'].includes(d.terrain) ? d.terrain : 'tarmac') };
     showView('play');
     renderLobby();
   }
@@ -1757,7 +1905,7 @@
         if (!s) return;
         waiting.done = true;
         startMatch({
-          mode: 'online', my: def, opp: inc.marble, oppName: name, terrain: msg.data.terrain === 'plate' ? 'plate' : 'tarmac',
+          mode: 'online', my: def, opp: inc.marble, oppName: name, terrain: (['tarmac', 'plate', 'terre'].includes(msg.data.terrain) ? msg.data.terrain : 'tarmac'),
           spots: s.map((e) => ({ x: e.p.x, z: e.p.z })), starter: msg.data.starter === 'guest' ? 0 : 1, net: game.net
         });
       });
@@ -1922,10 +2070,135 @@
     const c = Math.cos(slip);
     const s = Math.sin(slip);
     const power = Math.min(1, pull.power * (1 + gaussian() * 0.04));
+    playFlick(power);
     shoot(0, { x: aimed.dir.x * c - aimed.dir.z * s, z: aimed.dir.x * s + aimed.dir.z * c }, power);
   }
   canvas.addEventListener('pointerup', function (ev) { endDrag(ev, true); });
   canvas.addEventListener('pointercancel', function (ev) { endDrag(ev, false); });
+
+  /* ================= Son ================= */
+  /* Tous les sons sont synthétisés (aucun fichier) : choc verre contre verre, roulement selon le terrain,
+     rebond sur le mur, cliquetis sur les lignes de la plaque, pichenette, petites mélodies de fin, machine à billes. */
+  const sound = { ctx: null, on: true, master: null, white: null, brown: null, roll: [], lastTick: 0 };
+  try { sound.on = localStorage.getItem('billes.sound') !== '0'; } catch (e) { /* stockage indisponible */ }
+
+  function audio() {
+    if (!sound.on) return null;
+    if (!sound.ctx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      const ac = new AC();
+      sound.ctx = ac;
+      sound.master = ac.createGain();
+      sound.master.gain.value = 0.8;
+      sound.master.connect(ac.destination);
+      const len = ac.sampleRate * 2;
+      sound.white = ac.createBuffer(1, len, ac.sampleRate);
+      sound.brown = ac.createBuffer(1, len, ac.sampleRate);
+      const w = sound.white.getChannelData(0);
+      const b = sound.brown.getChannelData(0);
+      let last = 0;
+      for (let i = 0; i < len; i++) {
+        w[i] = Math.random() * 2 - 1;
+        last = (last + 0.02 * w[i]) / 1.02;
+        b[i] = last * 3.5;
+      }
+      marbles.forEach(function () {
+        const src = ac.createBufferSource();
+        src.buffer = sound.brown;
+        src.loop = true;
+        const f = ac.createBiquadFilter();
+        f.type = 'lowpass';
+        const g = ac.createGain();
+        g.gain.value = 0;
+        src.connect(f); f.connect(g); g.connect(sound.master);
+        src.start(0, Math.random());
+        sound.roll.push({ f: f, g: g });
+      });
+    }
+    if (sound.ctx.state === 'suspended') sound.ctx.resume();
+    return sound.ctx;
+  }
+
+  function tone(freq, vol, dur, type, delay) {
+    const ac = audio();
+    if (!ac || vol < 0.003) return;
+    const t = ac.currentTime + (delay || 0);
+    const o = ac.createOscillator();
+    const g = ac.createGain();
+    o.type = type || 'sine';
+    o.frequency.value = freq;
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(sound.master);
+    o.start(t); o.stop(t + dur + 0.05);
+  }
+
+  function noise(vol, freq, q, dur, type) {
+    const ac = audio();
+    if (!ac || vol < 0.003) return;
+    const t = ac.currentTime;
+    const s = ac.createBufferSource();
+    s.buffer = sound.white;
+    const f = ac.createBiquadFilter();
+    f.type = type || 'bandpass';
+    f.frequency.value = freq;
+    f.Q.value = q;
+    const g = ac.createGain();
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    s.connect(f); f.connect(g); g.connect(sound.master);
+    s.start(t, Math.random()); s.stop(t + dur + 0.05);
+  }
+
+  /* Verre contre verre : partiels aigus non harmoniques qui s'éteignent vite, plus un petit claquement. */
+  function playClink(speed) {
+    const v = Math.min(1, speed / 9) * 0.5;
+    const base = 2500 + Math.random() * 900;
+    [1, 2.32, 3.94].forEach(function (mul, i) { tone(base * mul, v / (1 + i * 1.6), 0.2 / (1 + i * 0.5)); });
+    noise(v * 0.6, 5000, 1.2, 0.03);
+  }
+  const playThud = (speed) => { const v = Math.min(1, speed / 10) * 0.45; noise(v, 420, 0.8, 0.09, 'lowpass'); tone(150, v * 0.6, 0.08); };
+  const playClack = (speed) => { const v = Math.min(1, speed / 8) * 0.25; tone(1750 + Math.random() * 200, v, 0.06, 'triangle'); noise(v * 0.5, 3200, 3, 0.03); };
+  const playFlick = (power) => noise(0.12 + power * 0.25, 1600, 1.5, 0.05);
+  const playTick = (rarity) => {
+    const now = performance.now();
+    if (now - sound.lastTick < 30) return;
+    sound.lastTick = now;
+    tone(3200 + Math.random() * 1400, 0.05, 0.03);
+  };
+  function playMelody(notes, type) {
+    notes.forEach(function (n, i) { tone(n, 0.16, 0.35, type || 'triangle', i * 0.11); });
+  }
+  const playWin = () => playMelody([523, 659, 784, 1047]);
+  const playLose = () => playMelody([392, 330, 262], 'sine');
+  const playPrize = (rarity) => {
+    const runs = { common: [880], uncommon: [880, 1175], rare: [880, 1175, 1480], legend: [880, 1175, 1480, 1760, 2349] };
+    playMelody(runs[rarity] || [880], 'sine');
+  };
+
+  /* Roulement : bruit grave filtré selon le terrain, d'autant plus fort que la bille va vite. */
+  const ROLL_SOUND = { tarmac: { freq: 900, q: 0.7, vol: 0.32 }, plate: { freq: 2300, q: 4, vol: 0.22 }, terre: { freq: 320, q: 0.5, vol: 0.3 } };
+  function updateRollSound() {
+    if (!sound.ctx || !sound.roll.length) return;
+    const prof = ROLL_SOUND[terrain];
+    const t = sound.ctx.currentTime;
+    marbles.forEach(function (m, i) {
+      const v = m.body.velocity;
+      const moving = sound.on && m.mesh.visible && game.phase !== 'remote' && game.phase !== 'idle' && Math.abs(v.y) < 1.5;
+      const speed = moving ? Math.hypot(v.x, v.z) : 0;
+      sound.roll[i].f.frequency.setTargetAtTime(prof.freq * (0.8 + Math.min(speed, 12) / 30), t, 0.05);
+      sound.roll[i].f.Q.value = prof.q;
+      sound.roll[i].g.gain.setTargetAtTime(Math.min(1, speed / 12) * prof.vol, t, 0.05);
+    });
+  }
+
+  /* Petite vibration du téléphone quand ça cogne (ignorée là où ce n'est pas disponible). */
+  function buzz(ms) {
+    try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) { /* non disponible */ }
+  }
+
+  document.addEventListener('pointerdown', function () { audio(); }, true);
 
   /* ================= Interface ================= */
   function setStatus(text) { $('status').textContent = text; }
@@ -2269,6 +2542,17 @@
   });
   $('stakeBtn').addEventListener('click', function () { showView(bag.marbles.length ? 'bag' : 'pack'); });
   $('botBtn').addEventListener('click', startBotMatch);
+  function renderSoundBtn() {
+    $('soundBtn').textContent = sound.on ? 'Son : oui' : 'Son : non';
+    $('soundBtn').setAttribute('aria-pressed', sound.on ? 'true' : 'false');
+  }
+  $('soundBtn').addEventListener('click', function () {
+    sound.on = !sound.on;
+    try { localStorage.setItem('billes.sound', sound.on ? '1' : '0'); } catch (e) { /* stockage indisponible */ }
+    if (!sound.on && sound.ctx) sound.roll.forEach(function (r) { r.g.gain.value = 0; });
+    renderSoundBtn();
+  });
+  renderSoundBtn();
   $('claimBtn').addEventListener('click', claimTickets);
   $('discardToggle').addEventListener('click', function () {
     bagUi.discarding = !bagUi.discarding;
@@ -2381,6 +2665,7 @@
     const ny = dy / d;
     b.x = x + nx * min;
     b.y = y + ny * min;
+    if (nudge && b.vx * nx + b.vy * ny < -1.5) playTick();
     bounceOff(b, nx, ny, nudge);
   }
 
@@ -2406,6 +2691,7 @@
     if (!getStake()) bag.stakeUid = def.uid;
     plinko.balls.splice(plinko.balls.indexOf(b), 1);
     plinko.flashes[k] = 1.4;
+    playPrize(SLOT_RARITY[k]);
     const reveal = $('packReveal');
     reveal.prepend(cardEl(def, null, false));
     while (reveal.children.length > 12) reveal.lastChild.remove();
@@ -2555,11 +2841,12 @@
   }
   window.addEventListener('resize', resize);
 
+  const tmpTarget = new THREE.Vector3();
   let last = performance.now();
   let acc = 0;
   function frame(now) {
     const dt = Math.min((now - last) / 1000, 0.05);
-    acc += dt;
+    acc += dt * (performance.now() < (game.slowUntil || 0) ? 0.25 : 1);
     last = now;
     let steps = 0;
     while (acc >= STEP && steps < 12) {
@@ -2570,7 +2857,8 @@
     if (game.phase === 'remote') {
       if (game.targets) {
         marbles.forEach(function (m, i) {
-          m.mesh.position.lerp(game.targets[i].p, 0.35);
+          const tp = game.targets[i].p;
+          m.mesh.position.lerp(tmpTarget.set(tp.x, tp.y - (terrain === 'terre' ? potDepthAt(tp.x, tp.z) : 0), tp.z), 0.35);
           m.mesh.quaternion.slerp(game.targets[i].q, 0.35);
         });
       }
@@ -2578,12 +2866,14 @@
     } else {
       marbles.forEach(function (m) {
         m.mesh.position.copy(m.body.position);
+        if (terrain === 'terre') m.mesh.position.y -= potDepthAt(m.mesh.position.x, m.mesh.position.z);
         m.mesh.quaternion.copy(m.body.quaternion);
       });
     }
     if (!$('view-play').hidden) {
       updateCamera(false);
       updateAim(now);
+      updateRollSound();
       placeShadows();
       renderer.render(scene, camera);
     }
