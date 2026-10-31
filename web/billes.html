@@ -390,10 +390,10 @@
   /* Échelle : 1 unité = 2,5 cm (une bille de 16 mm a un rayon de 0,32).
      Goudron : enrobé de voirie, bitume noir et gravillons de 2 à 10 mm. Les gros gravillons dépassent et font dévier la bille ;
      ce sont les mêmes cailloux qui sont dessinés et qui agissent sur la physique, au même endroit, donc le terrain s'apprend.
-     Plaque : tampon de voirie rond en fonte, quadrillage anti-dérapant en relief, cartouche central plat, cadre. */
+     Plaque : tampon de voirie rond en fonte, quadrillage anti-dérapant en relief, cadre. */
   const G = 60;
   const TARMAC_TILE = 6;
-  const COVER = { r: 9.5, cell: 1.0, ridge: 0.16, depth: 0.15, labelW: 4.4, labelD: 1.3, rimW: 1.1, rimH: 0.3 };
+  const COVER = { r: 9.5, cell: 1.0, ridge: 0.16, depth: 0.15, rimW: 1.1, rimH: 0.3 };
   const STONE_CELL = 0.5;
   const STONE_REACH = 0.15;
 
@@ -595,34 +595,6 @@
     return makeTexture(c);
   }
 
-  /* Cartouche central en fonte : lettres en relief polies par le passage. */
-  function coverLabelMap() {
-    const w = 1024;
-    const h = Math.round((w * COVER.labelD) / COVER.labelW);
-    const c = document.createElement('canvas');
-    c.width = w;
-    c.height = h;
-    const g = c.getContext('2d');
-    g.fillStyle = '#34312e';
-    g.fillRect(0, 0, w, h);
-    const r = rng(5);
-    for (let i = 0; i < 4000; i++) {
-      g.fillStyle = r() < 0.4 ? 'rgba(110,60,30,0.35)' : 'rgba(20,20,20,0.35)';
-      g.fillRect(r() * w, r() * h, 2, 2);
-    }
-    g.textAlign = 'center';
-    g.textBaseline = 'middle';
-    g.font = '700 ' + Math.round(h * 0.34) + 'px Figtree, Arial, sans-serif';
-    g.fillStyle = '#1a1816';
-    g.fillText('ASSAINISSEMENT', w / 2 + 3, h * 0.42 + 3);
-    g.fillStyle = '#a7a39c';
-    g.fillText('ASSAINISSEMENT', w / 2, h * 0.42);
-    g.font = '700 ' + Math.round(h * 0.16) + 'px Figtree, Arial, sans-serif';
-    g.fillStyle = '#8e8a83';
-    g.fillText('D 400   EN 124', w / 2, h * 0.8);
-    return makeTexture(c);
-  }
-
   const tarmacTex = tarmacMaps();
   const tarmacMat = new THREE.MeshStandardMaterial({ map: tarmacTex.map, bumpMap: tarmacTex.bump, bumpScale: 0.9, roughness: 0.9, metalness: 0 });
 
@@ -718,12 +690,13 @@
   [[0, -edge, longSide, WALL_T], [0, edge, longSide, WALL_T], [-edge, 0, WALL_T, HALF * 2], [edge, 0, WALL_T, HALF * 2]].forEach(function (w) {
     const m = new THREE.Mesh(new THREE.BoxGeometry(w[2], WALL_H + 0.5, w[3]), curbMat);
     tarmacGroup.add(m);
-    tarmacBodies.push(addBox(w[0], WALL_H / 2 - 0.25, w[1], w[2], WALL_H + 0.5, w[3], mWall, m));
+    /* Le mur physique monte haut (invisible) : aucune bille ne peut passer par-dessus, même en sautant. */
+    tarmacBodies.push(addBox(w[0], 1.25, w[1], w[2], 3.5, w[3], mWall, m));
+    m.position.y = WALL_H / 2 - 0.25;
   });
 
-  /* Plaque : fond des cases, quadrillage en relief coupé par le cercle et le cartouche, cadre rond. */
+  /* Plaque : fond des cases, quadrillage en relief coupé par le cercle, cadre rond. */
   const coverBodies = [];
-  const insideLabel = (x, z) => Math.abs(x) < COVER.labelW / 2 && Math.abs(z) < COVER.labelD / 2;
   (function buildCover() {
     const floor = new THREE.Mesh(new THREE.CircleGeometry(COVER.r + 0.05, 96), new THREE.MeshStandardMaterial({ map: coverFloorMap(), roughness: 0.85, metalness: 0.3 }));
     floor.rotation.x = -Math.PI / 2;
@@ -744,23 +717,9 @@
       const c = k * COVER.cell;
       const L = Math.sqrt(Math.max(0, COVER.r * COVER.r - c * c));
       if (L < 0.3) continue;
-      if (Math.abs(c) < COVER.labelW / 2 + COVER.ridge) {
-        ridge(c - COVER.ridge / 2, c + COVER.ridge / 2, -L, -COVER.labelD / 2);
-        ridge(c - COVER.ridge / 2, c + COVER.ridge / 2, COVER.labelD / 2, L);
-      } else {
-        ridge(c - COVER.ridge / 2, c + COVER.ridge / 2, -L, L);
-      }
-      if (Math.abs(c) < COVER.labelD / 2 + COVER.ridge) {
-        ridge(-L, -COVER.labelW / 2, c - COVER.ridge / 2, c + COVER.ridge / 2);
-        ridge(COVER.labelW / 2, L, c - COVER.ridge / 2, c + COVER.ridge / 2);
-      } else {
-        ridge(-L, L, c - COVER.ridge / 2, c + COVER.ridge / 2);
-      }
+      ridge(c - COVER.ridge / 2, c + COVER.ridge / 2, -L, L);
+      ridge(-L, L, c - COVER.ridge / 2, c + COVER.ridge / 2);
     }
-    const labelMats = [ironMat, ironMat, new THREE.MeshStandardMaterial({ map: coverLabelMap(), roughness: 0.45, metalness: 0.55 }), ironMat, ironMat, ironMat];
-    const label = new THREE.Mesh(new THREE.BoxGeometry(COVER.labelW, H, COVER.labelD), labelMats);
-    coverGroup.add(label);
-    coverBodies.push(addBox(0, -H / 2, 0, COVER.labelW, H, COVER.labelD, mGround, label));
     const ri = COVER.r;
     const ro = COVER.r + COVER.rimW;
     const top = COVER.rimH;
@@ -775,7 +734,7 @@
     const segLen = (2 * Math.PI * (ri + 0.3)) / segs + 0.08;
     for (let i = 0; i < segs; i++) {
       const a = (i / segs) * Math.PI * 2;
-      coverBodies.push(addBox(Math.cos(a) * (ri + 0.3), (top - H - 0.5) / 2, Math.sin(a) * (ri + 0.3), 0.6, top + H + 0.5, segLen, mWall, null, -a));
+      coverBodies.push(addBox(Math.cos(a) * (ri + 0.3), 1.25, Math.sin(a) * (ri + 0.3), 0.6, 3.5, segLen, mWall, null, -a));
     }
   })();
 
@@ -1335,7 +1294,7 @@
         { x: 2 + Math.random() * 2, z: (Math.random() * 2 - 1) * 4 }
       ];
     }
-    /* Sur la plaque : deux cases au hasard dans le disque, assez éloignées, hors du cartouche. */
+    /* Sur la plaque : deux cases au hasard dans le disque, à bonne distance. */
     for (;;) {
       const spots = [0, 1].map(function () {
         const a = Math.random() * Math.PI * 2;
@@ -1344,14 +1303,13 @@
       });
       const gap = Math.hypot(spots[0].x - spots[1].x, spots[0].z - spots[1].z);
       const far = gap > 3 && gap < 6.5;
-      if (far && !spots.some((s) => insideLabel(s.x, s.z) || Math.hypot(s.x, s.z) > COVER.r - 0.8)) return spots;
+      if (far && !spots.some((s) => Math.hypot(s.x, s.z) > COVER.r - 0.8)) return spots;
     }
   }
 
   function placeAt(i, spot) {
     const b = marbles[i].body;
-    const y = terrain === 'plate' && insideLabel(spot.x, spot.z) ? 0 : groundY();
-    b.position.set(spot.x, y + R + 0.001, spot.z);
+    b.position.set(spot.x, groundY() + R + 0.001, spot.z);
     b.velocity.set(0, 0, 0);
     b.angularVelocity.set(0, 0, 0);
     b.quaternion.set(0, 0, 0, 1);
