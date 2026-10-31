@@ -526,7 +526,7 @@
      selon l'épaisseur traversée. Les billes pleines (terre, laiteuse, agate...) ont un vernis brillant. */
   const MARBLE_VS = 'varying vec3 vObj; void main() { vObj = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }';
   const MARBLE_FS = [
-    'uniform int uType; uniform float uSeed; uniform float uCount; uniform float uTwist; uniform float uWidth;',
+    'uniform int uType; uniform float uSeed; uniform float uCount; uniform float uTwist; uniform float uWidth; uniform float uVariant;',
     'uniform vec3 uC1; uniform vec3 uC2; uniform vec3 uC3; uniform vec3 uAbsorb; uniform vec3 uCamObj; uniform vec3 uSun; uniform vec3 uGround;',
     'uniform mat3 uRot;',
     'varying vec3 vObj;',
@@ -589,15 +589,24 @@
     '  s.rgb = hc < 0.33 ? vec3(1.6) : (hc < 0.66 ? mix(uC2, vec3(1.0), 0.4) * 1.6 : mix(uC3, vec3(1.0), 0.4) * 1.6);',
     '  float neb = smoothstep(0.55, 0.85, fbm(q * 2.4 + uSeed * 11.0)) * step(length(q), 0.9) * 0.12;',
     '  return s.a > neb ? s : vec4(uC1 * 1.4, neb); }',
-    /* Tourbillon : rubans colorés juste sous la surface, enroulés d'un pôle à l'autre comme un sucre d'orge. */
+    /* Tourbillon, d'après de vraies billes : un fil enroulé comme un ressort autour de la bille, qui finit en escargot au pôle.
+       Variante 0 (type Kim'Play) : un seul fil fin et un cœur blanc argenté craquelé. Variante 1 : plusieurs rubans de couleur. */
     'vec4 swirlRibbons(vec3 q) {',
     '  float r = length(q); float phi = atan(q.z, q.x);',
-    '  float u = (phi - q.y * uTwist) / 6.28318 * 5.0 + uSeed * 5.0;',
-    '  float b = fract(u); float idx = mod(floor(u), 3.0);',
-    '  float band = smoothstep(0.0, 0.05, b) * smoothstep(0.24, 0.18, b);',
-    '  float shell = smoothstep(0.74, 0.8, r) * smoothstep(0.95, 0.89, r);',
-    '  vec3 c = idx < 0.5 ? uC1 : (idx < 1.5 ? uC2 : vec3(0.96));',
-    '  return vec4(c, band * shell); }',
+    '  if (uVariant < 0.5) {',
+    '    float u = q.y * (3.2 + uWidth * 4.0) + phi / 6.28318 * sign(uTwist) + uSeed;',
+    '    float line = smoothstep(0.055, 0.02, abs(fract(u) - 0.5));',
+    '    float shell = smoothstep(0.76, 0.8, r) * smoothstep(0.93, 0.88, r);',
+    '    vec4 o = vec4(uC1, line * shell);',
+    '    float ridge = 1.0 - abs(2.0 * noise3(q * 7.0 + uSeed * 13.0) - 1.0);',
+    '    float frost = (0.008 + 0.3 * pow(ridge, 10.0)) * smoothstep(0.66, 0.5, r);',
+    '    return pick(o, vec3(1.05, 1.05, 1.08), frost); }',
+    '  float u = q.y * (2.0 + uWidth * 3.0) + phi / 6.28318 * sign(uTwist) + uSeed * 4.0;',
+    '  float b = fract(u * 2.0); float idx = mod(floor(u * 2.0), 4.0);',
+    '  float band = smoothstep(0.0, 0.05, b) * smoothstep(0.3, 0.24, b);',
+    '  float shell = smoothstep(0.74, 0.8, r) * smoothstep(0.94, 0.89, r);',
+    '  vec3 c = idx < 0.5 ? uC1 : (idx < 1.5 ? vec3(0.96) : (idx < 2.5 ? uC2 : uC3));',
+    '  return vec4(c, band * shell * step(0.5, abs(idx - 1.0))); }',
     /* Tornade : un seul ruban plat au centre, torsadé plusieurs tours, une couleur par face. */
     'vec4 tornadoRibbon(vec3 q) {',
     '  float a = q.y * uTwist + uSeed * 6.28318;',
@@ -710,13 +719,17 @@
     const r = rng(def.seed);
     const h = def.hue;
     /* Verre clair : légère teinte bleu-vert, comme le verre réel. Verre teinté pour Mica et Lutz. */
-    const tint = linColor(h, 0.7, 0.45);
-    const strength = { mica: 2.2, lutz: 2.2, galaxy: 3.2, clear: 1.1, nugget: 0.9 }[def.type];
+    /* Tourbillon : verre clair, turquoise, bleu ou ambre, comme sur les vraies billes. */
+    const swirlTint = [null, 185, 215, 40][Math.floor(rng(def.seed + 3)() * 4)];
+    const tint = def.type === 'swirl' ? linColor(swirlTint || 0, 0.55, 0.6) : linColor(h, 0.7, 0.45);
+    const swirlVariant = def.type === 'swirl' && r() < 0.55 ? 0 : 1;
+    const strength = def.type === 'swirl' ? (swirlVariant === 0 && swirlTint ? 0.9 : undefined) : { mica: 2.2, lutz: 2.2, galaxy: 3.2, clear: 1.1, nugget: 0.9 }[def.type];
     const absorb = strength
       ? new THREE.Vector3(1 - tint.r, 1 - tint.g, 1 - tint.b).multiplyScalar(strength)
       : new THREE.Vector3(0.35, 0.12, 0.2);
     const uniforms = {
       uType: { value: TYPE_ID[def.type] },
+      uVariant: { value: swirlVariant },
       uSeed: { value: r() },
       uCount: { value: 3 + Math.floor(r() * 2) },
       uTwist: { value: def.type === 'swirl' ? (r() < 0.5 ? -1 : 1) * (2.6 + r() * 1.2) : def.type === 'tornado' ? (r() < 0.5 ? -1 : 1) * (6.5 + r() * 2.5) : (r() - 0.5) * 1.2 },
