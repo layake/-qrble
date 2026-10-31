@@ -302,7 +302,10 @@
     galaxy: { name: 'Galaxie', rarity: 'rare' },
     clambroth: { name: 'Clambroth', rarity: 'rare' },
     onion: { name: "Pelure d'oignon", rarity: 'legend' },
-    lutz: { name: 'Lutz', rarity: 'legend' }
+    lutz: { name: 'Lutz', rarity: 'legend' },
+    gold: { name: 'Dorée', rarity: 'legend' },
+    silver: { name: 'Argentée', rarity: 'legend' },
+    diamond: { name: 'Diamant', rarity: 'legend' }
   };
   const TYPES = Object.keys(CATALOG);
 
@@ -557,6 +560,24 @@
     '  col += 2.5 * smoothstep(0.96, 0.985, dot(d, normalize(vec3(0.6, 0.45, -0.5))));',
     '  return col; }',
     'vec4 pick(vec4 o, vec3 c, float d) { return d > o.a ? vec4(c, d) : o; }',
+    /* Diamant : facettes taillées, indice de réfraction 2,4 et dispersion (chaque couleur est déviée un peu différemment). */
+    /* Studio contrasté pour les métaux et le diamant : fond sombre, boîtes à lumière, ligne d'horizon, sol en bas. */
+    'vec3 studio(vec3 d) {',
+    '  vec3 c = mix(vec3(0.03), vec3(0.32), smoothstep(-0.1, 0.9, d.y));',
+    '  if (d.y < 0.0) c = mix(uGround * 0.7, uGround * 0.25, smoothstep(0.0, -0.6, d.y));',
+    '  c += 7.0 * smoothstep(0.9, 0.96, dot(d, normalize(vec3(-0.5, 0.7, 0.5))));',
+    '  c += 3.5 * smoothstep(0.88, 0.94, dot(d, normalize(vec3(0.75, 0.35, -0.4))));',
+    '  c += 1.2 * smoothstep(0.03, 0.0, abs(d.y - 0.04));',
+    '  c += 0.8 * smoothstep(0.8, 0.95, dot(d, normalize(vec3(0.1, 0.15, 1.0))));',
+    '  return c; }',
+    'mat3 seedRot() { float a = uSeed * 6.28318; float b = fract(uSeed * 7.13) * 3.0; return mat3(cos(a), 0.0, sin(a), 0.0, 1.0, 0.0, -sin(a), 0.0, cos(a)) * mat3(1.0, 0.0, 0.0, 0.0, cos(b), sin(b), 0.0, -sin(b), cos(b)); }',
+    'vec3 facet(vec3 d) { mat3 m = seedRot(); return normalize(floor(m * d * 3.0 + 0.5) + 0.001) * m; }',
+    'vec3 diaPath(vec3 v, vec3 p, float ior) {',
+    '  vec3 nf = facet(p); vec3 t = refract(v, nf, 1.0 / ior);',
+    '  float L = max(-2.0 * dot(p, t), 0.05); vec3 ex = normalize(p + t * L); vec3 nb = facet(ex);',
+    '  vec3 t2 = refract(t, -nb, ior);',
+    '  if (dot(t2, t2) < 0.001) { vec3 r1 = reflect(t, -nb); vec3 ex2 = normalize(ex + r1 * 1.2); t2 = refract(r1, -facet(ex2), ior); if (dot(t2, t2) < 0.001) t2 = reflect(r1, -facet(ex2)); }',
+    '  return studio(normalize(uRot * t2)); }',
     'vec4 helix(vec3 q, float nb, float twist, float w, float rIn, float rOut) {',
     '  float rho = length(q.xz); float phi = atan(q.z, q.x); vec4 o = vec4(0.0);',
     '  for (int k = 0; k < 4; k++) {',
@@ -718,7 +739,20 @@
     '  vec3 refl = env(normalize(uRot * reflect(v, n)));',
     '  vec3 col;',
     '  bool solid = uType <= 5 || uType == 13 || uType == 15 || uType == 17 || (uType == 7 && uVariant > 1.5) || (uType == 16 && uVariant < 0.5) || (uType == 14 && abs(uVariant - 1.0) > 0.5);',
-    '  if (solid) {',
+    /* Dorée et Argentée : métal poli, toute la couleur vient du reflet (Fresnel de Schlick avec la teinte du métal). */
+    '  if (uType == 19 || uType == 20) {',
+    '    vec3 F0 = uType == 19 ? vec3(1.0, 0.71, 0.29) : vec3(0.95, 0.94, 0.92);',
+    '    vec3 nb = normalize(n + 0.01 * (vec3(noise3(p * 45.0), noise3(p * 45.0 + 5.0), noise3(p * 45.0 + 9.0)) - 0.5));',
+    '    vec3 Fs = F0 + (1.0 - F0) * pow(1.0 - clamp(dot(-v, nb), 0.0, 1.0), 5.0);',
+    '    col = studio(normalize(uRot * reflect(v, nb))) * Fs * (uType == 19 ? 1.25 : 1.0);',
+    '  } else if (uType == 21) {',
+    '    vec3 nf = facet(p);',
+    '    float cf = clamp(dot(-v, nf), 0.0, 1.0);',
+    '    float Ff = 0.17 + 0.83 * pow(1.0 - cf, 5.0);',
+    '    vec3 rr = studio(normalize(uRot * reflect(v, nf)));',
+    '    vec3 tr = vec3(diaPath(v, p, 2.36).r, diaPath(v, p, 2.42).g, diaPath(v, p, 2.5).b);',
+    '    col = rr * Ff + tr * (1.0 - Ff) * 1.15;',
+    '  } else if (solid) {',
     /* Galaxie : surface légèrement granuleuse, le reflet est un peu brouillé. */
     '    vec3 ns = uType == 15 ? normalize(n + 0.08 * (vec3(noise3(p * 35.0), noise3(p * 35.0 + 7.0), noise3(p * 35.0 + 13.0)) - 0.5)) : n;',
     '    if (uType == 15) { refl = env(normalize(uRot * reflect(v, ns))); F *= 0.8; }',
@@ -763,8 +797,8 @@
     '}'
   ].join('\n');
 
-  const TYPE_ID = { opaque: 0, milky: 1, agate: 2, pearl: 4, onion: 5, cateye: 6, swirl: 7, tornado: 8, mica: 9, lutz: 10, clear: 12, clay: 13, nugget: 14, galaxy: 15, spider: 16, clambroth: 17 };
-  const GLASS_TYPES = ['cateye', 'swirl', 'tornado', 'mica', 'lutz', 'clear', 'nugget', 'spider'];
+  const TYPE_ID = { opaque: 0, milky: 1, agate: 2, pearl: 4, onion: 5, cateye: 6, swirl: 7, tornado: 8, mica: 9, lutz: 10, clear: 12, clay: 13, nugget: 14, galaxy: 15, spider: 16, clambroth: 17, gold: 19, silver: 20, diamond: 21 };
+  const GLASS_TYPES = ['cateye', 'swirl', 'tornado', 'mica', 'lutz', 'clear', 'nugget', 'spider', 'diamond'];
   /* Tourbillon : 0 fil fin et cœur argenté, 2 bille opaque à rubans. Tornade : 1 rubans épais opaques dans le verre, 3 rubans translucides. */
   const ribbonVariantOf = (def) => {
     const x = rng(def.seed + 11)();
