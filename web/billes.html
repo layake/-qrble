@@ -558,6 +558,13 @@
     '  float d = smoothstep(0.16, 0.0, length(f - off * 0.6)) * step(1.0 - amount, h);',
     '  return vec4(mix(vec3(1.4), vec3(1.6, 1.1, 0.45), step(0.5, hash3(i + 9.1))), d); }',
     'float ell(vec3 q, vec3 c, vec3 r) { return length((q - c) / r) - 1.0; }',
+    /* Petites bulles d'air prises dans le verre, comme sur les billes de cour d'école. */
+    'vec4 bubbles(vec3 q) {',
+    '  vec3 g = q * 26.0 + uSeed * 91.0; vec3 i = floor(g); vec3 f = fract(g) - 0.5;',
+    '  vec3 off = vec3(hash3(i + 3.1), hash3(i + 6.2), hash3(i + 8.3)) - 0.5;',
+    '  float rad = 0.06 + 0.1 * hash3(i + 1.9); float d = length(f - off * 0.6);',
+    '  float ring = smoothstep(rad, rad * 0.6, d) - smoothstep(rad * 0.6, rad * 0.2, d);',
+    '  return vec4(vec3(1.25), ring * step(0.9, hash3(i + 7.7)) * 0.7 * step(length(q), 0.95)); }',
     'float figureD(vec3 q) {',
     '  float d = min(ell(q, vec3(-0.05, -0.08, 0.0), vec3(0.3, 0.19, 0.16)), ell(q, vec3(0.24, 0.1, 0.0), vec3(0.13, 0.12, 0.11)));',
     '  d = min(d, ell(q, vec3(0.26, 0.24, 0.05), vec3(0.03, 0.08, 0.03)));',
@@ -619,11 +626,14 @@
     '    float rho = length(q.xz); vec4 o = vec4(0.0);',
     '    for (int k = 0; k < 4; k++) {',
     '      if (float(k) >= uCount) break;',
-    '      float a = uSeed * 6.28318 + float(k) * 3.14159 / uCount + q.y * uTwist;',
+    /* Pétales larges, fins et courbés comme des flammes, bords ondulés, fines stries dans la longueur. */
+    '      float a = uSeed * 6.28318 + float(k) * 3.14159 / uCount + q.y * uTwist + rho * 1.3 * sign(uTwist);',
     '      float d = abs(dot(q, vec3(cos(a), 0.0, sin(a))));',
-    '      float w = uWidth * (1.0 - q.y * q.y / 0.75);',
-    '      float dens = smoothstep(0.045, 0.0, d) * step(rho, w) * step(abs(q.y), 0.86);',
+    '      float w = uWidth * (1.0 - q.y * q.y / 0.8);',
+    '      float edge = smoothstep(w, w - 0.06, rho + 0.04 * sin(q.y * 9.0 + float(k) * 2.1));',
+    '      float dens = smoothstep(0.035, 0.008, d) * edge * step(abs(q.y), 0.9);',
     '      vec3 c = k == 0 ? uC1 : (k == 1 ? uC2 : (k == 2 ? uC3 : uC1));',
+    '      c *= 0.94 + 0.06 * sin(q.y * 22.0 + rho * 10.0);',
     '      o = pick(o, c, dens); }',
     '    return o; }',
     '  if (uType == 7) return swirlRibbons(q);',
@@ -678,6 +688,7 @@
     '    for (int i = 0; i < 64; i++) {',
     '      vec3 q = p + t * ((float(i) + jit) / 64.0 * L);',
     '      vec4 c = core(q);',
+    '      if (uType == 6 || uType == 12 || uType == 14 || uType == 16) { vec4 bb = bubbles(q); c = bb.a > c.a ? bb : c; }',
     '      float a = clamp(c.a * (uType == 11 ? 1.0 : (uType == 8 || uType == 7 ? 0.85 : 0.6)), 0.0, 1.0);',
     '      acc.rgb += (1.0 - acc.a) * a * c.rgb;',
     '      acc.a += (1.0 - acc.a) * a;',
@@ -733,17 +744,24 @@
     const strength = def.type === 'swirl' ? (swirlVariant === 0 && swirlTint ? 0.9 : undefined) : { mica: 2.2, lutz: 2.2, galaxy: 3.2, clear: 1.1, nugget: 0.9 }[def.type];
     const absorb = strength
       ? new THREE.Vector3(1 - tint.r, 1 - tint.g, 1 - tint.b).multiplyScalar(strength)
-      : new THREE.Vector3(0.35, 0.12, 0.2);
+      : def.type === 'cateye' ? new THREE.Vector3(0.15, 0.06, 0.4) : new THREE.Vector3(0.35, 0.12, 0.2);
+    /* Œil de chat : trio classique jaune, rouge-orange, bleu, ou une seule couleur avec des nuances. */
+    const catPal = def.type === 'cateye'
+      ? (rng(def.seed + 17)() < 0.6
+        ? [linColor(50, 0.95, 0.52), linColor(12, 0.9, 0.5), linColor(225, 0.85, 0.42)]
+          .sort(((pr) => () => pr() - 0.5)(rng(def.seed + 19)))
+        : [linColor(h, 0.85, 0.5), linColor(h + 8, 0.85, 0.6), linColor(h - 8, 0.85, 0.42)])
+      : null;
     const uniforms = {
       uType: { value: TYPE_ID[def.type] },
       uVariant: { value: swirlVariant },
       uSeed: { value: r() },
       uCount: { value: 3 + Math.floor(r() * 2) },
       uTwist: { value: def.type === 'swirl' ? (r() < 0.5 ? -1 : 1) * (2.6 + r() * 1.2) : def.type === 'tornado' ? (r() < 0.5 ? -1 : 1) * (6.5 + r() * 2.5) : (r() - 0.5) * 1.2 },
-      uWidth: { value: 0.3 + r() * 0.14 },
-      uC1: { value: def.type === 'agate' ? linColor(15 + (h % 35), 0.65, 0.42) : def.type === 'clay' ? linColor(h, 0.45, 0.42) : linColor(h, 0.85, def.type === 'opaque' ? 0.45 : 0.5) },
-      uC2: { value: def.type === 'tornado' && rng(def.seed + 5)() < 0.3 ? new THREE.Color(0.9, 0.9, 0.88) : linColor(h + (def.type === 'tornado' ? 40 + r() * 160 : 110 + r() * 80), 0.85, 0.55) },
-      uC3: { value: linColor(h + 240, 0.8, 0.55) },
+      uWidth: { value: def.type === 'cateye' ? 0.4 + r() * 0.12 : 0.3 + r() * 0.14 },
+      uC1: { value: catPal ? catPal[0] : def.type === 'agate' ? linColor(15 + (h % 35), 0.65, 0.42) : def.type === 'clay' ? linColor(h, 0.45, 0.42) : linColor(h, 0.85, def.type === 'opaque' ? 0.45 : 0.5) },
+      uC2: { value: catPal ? catPal[1] : def.type === 'tornado' && rng(def.seed + 5)() < 0.3 ? new THREE.Color(0.9, 0.9, 0.88) : linColor(h + (def.type === 'tornado' ? 40 + r() * 160 : 110 + r() * 80), 0.85, 0.55) },
+      uC3: { value: catPal ? catPal[2] : linColor(h + 240, 0.8, 0.55) },
       uAbsorb: { value: absorb },
       uCamObj: { value: new THREE.Vector3() },
       uRot: { value: new THREE.Matrix3() },
@@ -820,7 +838,9 @@
     let url = thumbCache.get(key);
     if (!url) {
       const v = buildMarbleVisual(def, GROUND_THUMB);
-      v.rotation.set(0.35, -0.6, 0.15);
+      /* Chaque œil de chat est posé dans un sens différent, comme dans un vrai sac de billes. */
+      const tilt = def.type === 'cateye' ? rng(def.seed + 23) : null;
+      v.rotation.set(tilt ? (tilt() - 0.5) * 2.6 : 0.35, -0.6, tilt ? (tilt() - 0.5) * 2.6 : 0.15);
       thumbScene.add(v);
       thumbRenderer.render(thumbScene, thumbCam);
       url = thumbRenderer.domElement.toDataURL('image/png');
