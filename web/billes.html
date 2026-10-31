@@ -1532,12 +1532,17 @@
     return d <= 2 ? 'common' : d <= 4 ? 'uncommon' : d <= 5 ? 'rare' : 'legend';
   });
   const SLOT_COLORS = { common: '#9aa6b2', uncommon: '#4cc47e', rare: '#7fa2f2', legend: '#e6b445' };
-  const plinko = { canvas: $('plinko'), w: 0, h: 0, S: 0, ox: 0, oy: 0, pegs: [], segs: [], balls: [], flashes: {} };
+  const plinko = { canvas: $('plinko'), w: 0, h: 0, S: 0, ox: 0, oy: 0, pegs: [], segs: [], rows: [], balls: [], flashes: {}, sprite: null, refreshTimer: null };
 
   /* Les murs invisibles passent par le centre des clous extérieurs : la bille ne peut ni sortir du triangle ni glisser le long du bord. */
   (function buildPlinko() {
     for (let i = 0; i < PL_ROWS; i++) {
-      for (let j = 0; j < i + 3; j++) plinko.pegs.push({ x: j - (i + 2) / 2, y: i * ROW_H });
+      plinko.rows.push([]);
+      for (let j = 0; j < i + 3; j++) {
+        const peg = { x: j - (i + 2) / 2, y: i * ROW_H };
+        plinko.pegs.push(peg);
+        plinko.rows[i].push(peg);
+      }
     }
     const lastY = (PL_ROWS - 1) * ROW_H;
     [-1, 1].forEach(function (side) {
@@ -1565,6 +1570,21 @@
     plinko.S = S;
     plinko.ox = w / 2;
     plinko.oy = (h - S * units) / 2 + S * 1.9;
+    /* La bille est dessinée une fois dans une petite image, puis recopiée : bien plus rapide qu'un dégradé par bille et par image. */
+    const size = Math.ceil(BALL_R * S * 2 * dpr) + 2;
+    const sprite = document.createElement('canvas');
+    sprite.width = sprite.height = size;
+    const sg = sprite.getContext('2d');
+    const c0 = size / 2;
+    const gr = sg.createRadialGradient(c0 - size * 0.16, c0 - size * 0.16, size * 0.04, c0, c0, size / 2 - 1);
+    gr.addColorStop(0, '#ffffff');
+    gr.addColorStop(0.6, '#cfd8e3');
+    gr.addColorStop(1, '#7d8a99');
+    sg.fillStyle = gr;
+    sg.beginPath();
+    sg.arc(c0, c0, size / 2 - 1, 0, Math.PI * 2);
+    sg.fill();
+    plinko.sprite = sprite;
   }
 
   function bounceOff(b, nx, ny, nudge) {
@@ -1609,14 +1629,23 @@
     const def = makeDef(pick(typesOf(SLOT_RARITY[k])));
     bag.marbles.push(def);
     if (!getStake()) bag.stakeUid = def.uid;
-    persist();
     plinko.balls.splice(plinko.balls.indexOf(b), 1);
     plinko.flashes[k] = 1.4;
     const reveal = $('packReveal');
     reveal.prepend(cardEl(def, null, false));
     while (reveal.children.length > 12) reveal.lastChild.remove();
-    renderAll();
-    if (!game.active) showIdle();
+    scheduleRefresh();
+  }
+
+  /* Quand beaucoup de billes tombent, on enregistre et on redessine le sac une seule fois par rafale. */
+  function scheduleRefresh() {
+    if (plinko.refreshTimer) return;
+    plinko.refreshTimer = setTimeout(function () {
+      plinko.refreshTimer = null;
+      persist();
+      renderAll();
+      if (!game.active) showIdle();
+    }, 400);
   }
 
   /* Les billes se traversent : si elles se cognaient, lancer en rafale les pousserait vers les bords et donnerait plus de légendaires. */
@@ -1628,7 +1657,10 @@
         b.vy += PL_GRAVITY * h;
         b.x += b.vx * h;
         b.y += b.vy * h;
-        plinko.pegs.forEach(function (p) { collideCircle(b, p.x, p.y, PEG_R, true); });
+        const row = Math.round(b.y / ROW_H);
+        for (let r = Math.max(0, row - 1); r <= Math.min(PL_ROWS - 1, row + 1); r++) {
+          plinko.rows[r].forEach(function (p) { collideCircle(b, p.x, p.y, PEG_R, true); });
+        }
       });
       balls.forEach(function (b) { plinko.segs.forEach(function (seg) { collideSegment(b, seg); }); });
     }
@@ -1677,15 +1709,9 @@
       g.arc(X(p.x), Y(p.y), PEG_R * S, 0, Math.PI * 2);
       g.fill();
     });
+    const d = BALL_R * S * 2;
     plinko.balls.forEach(function (b) {
-      const gr = g.createRadialGradient(X(b.x) - S * 0.09, Y(b.y) - S * 0.09, S * 0.02, X(b.x), Y(b.y), BALL_R * S);
-      gr.addColorStop(0, '#ffffff');
-      gr.addColorStop(0.6, '#cfd8e3');
-      gr.addColorStop(1, '#7d8a99');
-      g.fillStyle = gr;
-      g.beginPath();
-      g.arc(X(b.x), Y(b.y), BALL_R * S, 0, Math.PI * 2);
-      g.fill();
+      g.drawImage(plinko.sprite, X(b.x) - d / 2, Y(b.y) - d / 2, d, d);
     });
   }
 
@@ -1758,7 +1784,7 @@
         m.mesh.quaternion.copy(m.body.quaternion);
       });
     }
-    renderer.render(scene, camera);
+    if (!$('view-play').hidden) renderer.render(scene, camera);
     if (plinko.balls.length || !$('view-pack').hidden) updatePlinko(dt);
     requestAnimationFrame(frame);
   }
