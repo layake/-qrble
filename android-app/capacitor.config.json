@@ -1,0 +1,8 @@
+{
+  "appId": "fr.billes.app",
+  "appName": "Billes",
+  "webDir": "www",
+  "android": {
+    "backgroundColor": "#12161b"
+  }
+}

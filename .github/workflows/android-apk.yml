@@ -1,0 +1,53 @@
+# Fabrique l'APK Android du jeu Billes à chaque mise à jour de la page du jeu.
+# L'APK se télécharge dans l'onglet Actions de GitHub (section « Artifacts » du run).
+name: APK Android
+
+on:
+  push:
+    paths:
+      - 'web/billes.html'
+      - 'android-app/**'
+      - '.github/workflows/android-apk.yml'
+  workflow_dispatch:
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android-app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Dépendances
+        run: npm install --no-audit --no-fund
+
+      - name: Pages du jeu
+        run: node scripts/build-www.mjs
+
+      - name: Projet Android
+        run: |
+          npx cap add android
+          node scripts/patch-android.mjs
+          npx cap sync android
+
+      - name: Compilation de l'APK
+        working-directory: android-app/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: billes-apk
+          path: android-app/android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30

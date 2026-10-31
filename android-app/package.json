@@ -1,0 +1,16 @@
+{
+  "name": "billes-android",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Application Android du jeu Billes (Capacitor). Le jeu vient de web/billes.html.",
+  "scripts": {
+    "build:www": "node scripts/build-www.mjs"
+  },
+  "dependencies": {
+    "@capacitor/android": "6.1.2",
+    "@capacitor/cli": "6.1.2",
+    "@capacitor/core": "6.1.2",
+    "cannon": "0.6.2",
+    "three": "0.128.0"
+  }
+}
