@@ -125,6 +125,18 @@
   .chip.r-legend { color: var(--r-legend); }
   .rates { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 6px 14px; font-size: 0.92rem; }
   .rates span { font-variant-numeric: tabular-nums; }
+  .album-head { display: grid; gap: 8px; }
+  .progress { height: 10px; border-radius: 999px; background: var(--line); overflow: hidden; }
+  .progress span { display: block; height: 100%; width: 0; background: var(--accent); border-radius: 999px; transition: width 0.4s ease; }
+  .album-group { display: grid; gap: 10px; margin-top: 16px; }
+  .album-group h3 { margin: 0; display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font: 400 1.05rem/1.2 var(--font-display); }
+  .album-group h3 .num { font: 600 0.85rem var(--font-body); }
+  .card.locked { background: var(--bg); border-style: dashed; cursor: default; }
+  .card.locked .card-name { color: var(--muted); }
+  .mystery { width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; font: 400 1.5rem var(--font-display); color: var(--muted); background: radial-gradient(circle at 35% 30%, var(--panel), var(--line)); }
+  .thumb-pending { border-radius: 50%; background: radial-gradient(circle at 35% 30%, var(--panel), var(--line)); }
+  .owned { font-size: 0.75rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  @media (prefers-reduced-motion: reduce) { .progress span { transition: none; } }
   .bag-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; }
   .chips button {
@@ -133,6 +145,7 @@
   }
   .chips button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
   .chips .num { margin-left: 4px; }
+  .loading { position: absolute; inset: 0; display: grid; place-items: center; color: #e6ebef; font-weight: 600; background: var(--stage); }
   .card img, .stake-pick img, .banner img, .incoming img { filter: drop-shadow(0 3px 3px rgba(0, 0, 0, 0.28)); }
   .card { position: relative; }
   .card .tag {
@@ -168,6 +181,7 @@
     <nav class="tabs" aria-label="Sections">
       <button type="button" data-view="play" aria-current="true">Jouer</button>
       <button type="button" data-view="bag" aria-current="false">Sac <span class="num" id="bagCount">0</span></button>
+      <button type="button" data-view="album" aria-current="false">Album <span class="num" id="albumCount"></span></button>
       <button type="button" data-view="pack" aria-current="false">Machine <span class="num" id="ticketCount"></span> <span class="dot" id="packDot" hidden></span></button>
     </nav>
   </header>
@@ -175,6 +189,7 @@
   <section class="view" id="view-play">
     <div class="stage" id="stage">
       <canvas id="gl" aria-label="Terrain de billes en 3D"></canvas>
+      <div class="loading" id="loading" role="status">Préparation des billes...</div>
       <div class="banner" id="banner" hidden>
         <span class="thumb" id="bannerThumb"></span>
         <p class="banner-title" id="bannerTitle"></p>
@@ -230,6 +245,15 @@
         <button type="button" class="primary" id="discardConfirm">Défausser</button>
       </div>
     </div>
+  </section>
+
+  <section class="view" id="view-album" hidden>
+    <div class="album-head">
+      <h2>Album</h2>
+      <p class="note" id="albumSummary"></p>
+      <div class="progress" aria-hidden="true"><span id="albumBar"></span></div>
+    </div>
+    <div id="albumGroups"></div>
   </section>
 
   <section class="view" id="view-pack" hidden>
@@ -1149,8 +1173,8 @@
     '    float L = -2.0 * dot(p, t);',
     '    vec4 acc = vec4(0.0);',
     '    float jit = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);',
-    '    for (int i = 0; i < 64; i++) {',
-    '      vec3 q = p + t * ((float(i) + jit) / 64.0 * L);',
+    '    for (int i = 0; i < 40; i++) {',
+    '      vec3 q = p + t * ((float(i) + jit) / 40.0 * L);',
     '      vec4 c = core(q);',
     '      if (uType == 6 || uType == 12 || uType == 14) { vec4 bb = bubbles(q); c = bb.a > c.a ? bb : c; }',
     '      float a = clamp(c.a * (uType == 8 || uType == 7 || uType == 10 ? 0.85 : 0.6), 0.0, 1.0);',
@@ -1313,33 +1337,65 @@
     });
   }
 
-  /* Miniatures du sac : rendues une fois par bille avec le même moteur, puis gardées en image. */
-  const thumbRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
-  thumbRenderer.setSize(160, 160, false);
-  thumbRenderer.outputEncoding = THREE.sRGBEncoding;
-  thumbRenderer.toneMapping = THREE.ACESFilmicToneMapping;
-  thumbRenderer.toneMappingExposure = 1.05;
+  /* Miniatures : rendues par le moteur 3D principal dans une image hors écran (le gros programme des billes n'est compilé
+     qu'une fois pour tout le jeu), en double taille puis réduites pour lisser les bords, et gardées en cache.
+     Une seule bille de rendu est réutilisée : on ne fait que changer ses réglages, sans recompiler. */
+  const THUMB_RT = 320;
   const thumbScene = new THREE.Scene();
   const thumbCam = new THREE.PerspectiveCamera(30, 1, 0.1, 10);
   thumbCam.position.set(0, 0.45, 1.2);
   thumbCam.lookAt(0, -0.02, 0);
   const thumbCache = new Map();
+  const thumbTarget = new THREE.WebGLRenderTarget(THUMB_RT, THUMB_RT);
+  thumbTarget.texture.encoding = THREE.sRGBEncoding;
+  const thumbPixels = new Uint8Array(THUMB_RT * THUMB_RT * 4);
+  const thumbFull = document.createElement('canvas');
+  thumbFull.width = thumbFull.height = THUMB_RT;
+  const thumbFullCtx = thumbFull.getContext('2d');
+  const thumbImage = thumbFullCtx.createImageData(THUMB_RT, THUMB_RT);
+  const thumbOut = document.createElement('canvas');
+  const thumbOutCtx = thumbOut.getContext('2d');
+  const prevClear = new THREE.Color();
+  let thumbMesh = null;
 
-  function thumbUrl(def) {
-    const key = def.type + ':' + def.hue + ':' + def.seed;
+  function thumbUrl(def, size) {
+    const px = size || 160;
+    const key = def.type + ':' + def.hue + ':' + def.seed + ':' + px;
     let url = thumbCache.get(key);
-    if (!url) {
-      const v = buildMarbleVisual(def, GROUND_THUMB);
-      /* Chaque œil de chat est posé dans un sens différent, comme dans un vrai sac de billes. */
-      const tilt = def.type === 'cateye' || def.type === 'spider' ? rng(def.seed + 23) : null;
-      v.rotation.set(tilt ? (tilt() - 0.5) * 2.6 : 0.35, -0.6, tilt ? (tilt() - 0.5) * 2.6 : 0.15);
-      thumbScene.add(v);
-      thumbRenderer.render(thumbScene, thumbCam);
-      url = thumbRenderer.domElement.toDataURL('image/png');
-      thumbScene.remove(v);
-      disposeVisual(v);
-      thumbCache.set(key, url);
+    if (url) return url;
+    const temp = marbleMaterial(def, GROUND_THUMB);
+    if (!thumbMesh) {
+      thumbMesh = buildMarbleVisual(def, GROUND_THUMB);
+      thumbScene.add(thumbMesh);
+    } else {
+      Object.keys(temp.uniforms).forEach(function (k) {
+        const u = thumbMesh.material.uniforms[k];
+        const val = temp.uniforms[k].value;
+        if (val && typeof val.copy === 'function') u.value.copy(val); else u.value = val;
+      });
     }
+    temp.dispose();
+    /* Chaque œil de chat et chaque araignée est posé dans un sens différent, comme dans un vrai sac de billes. */
+    const tilt = def.type === 'cateye' || def.type === 'spider' ? rng(def.seed + 23) : null;
+    thumbMesh.rotation.set(tilt ? (tilt() - 0.5) * 2.6 : 0.35, -0.6, tilt ? (tilt() - 0.5) * 2.6 : 0.15);
+    const prevTarget = renderer.getRenderTarget();
+    const prevAlpha = renderer.getClearAlpha();
+    renderer.getClearColor(prevClear);
+    renderer.setRenderTarget(thumbTarget);
+    renderer.setClearColor(0x000000, 0);
+    renderer.clear();
+    renderer.render(thumbScene, thumbCam);
+    renderer.readRenderTargetPixels(thumbTarget, 0, 0, THUMB_RT, THUMB_RT, thumbPixels);
+    renderer.setRenderTarget(prevTarget);
+    renderer.setClearColor(prevClear, prevAlpha);
+    const row = THUMB_RT * 4;
+    for (let y = 0; y < THUMB_RT; y++) thumbImage.data.set(thumbPixels.subarray((THUMB_RT - 1 - y) * row, (THUMB_RT - y) * row), y * row);
+    thumbFullCtx.putImageData(thumbImage, 0, 0);
+    thumbOut.width = thumbOut.height = px;
+    thumbOutCtx.clearRect(0, 0, px, px);
+    thumbOutCtx.drawImage(thumbFull, 0, 0, px, px);
+    url = thumbOut.toDataURL('image/png');
+    thumbCache.set(key, url);
     return url;
   }
 
@@ -1535,7 +1591,8 @@
       marbles: list,
       tickets: Math.max(0, Math.floor(Number(o.tickets) || 0)),
       nextPackAt: Number(o.nextPackAt) || 0,
-      stakeUid: typeof o.stakeUid === 'string' ? o.stakeUid : null
+      stakeUid: typeof o.stakeUid === 'string' ? o.stakeUid : null,
+      seen: Array.isArray(o.seen) ? o.seen.map((t) => RETIRED_TYPES[t] || t).filter((t) => Object.prototype.hasOwnProperty.call(CATALOG, t)) : []
     };
   }
 
@@ -1551,7 +1608,14 @@
   let writing = false;
   let dirty = false;
 
+  /* Album : on retient chaque type de bille déjà possédé, même si la bille a été perdue ou défaussée depuis. */
+  function markSeen() {
+    if (!Array.isArray(bag.seen)) bag.seen = [];
+    bag.marbles.forEach(function (m) { if (!bag.seen.includes(m.type)) bag.seen.push(m.type); });
+  }
+
   function persist() {
+    markSeen();
     saveLocal();
     if (bagDoc) flush();
   }
@@ -2203,11 +2267,31 @@
   /* ================= Interface ================= */
   function setStatus(text) { $('status').textContent = text; }
 
+  /* Les miniatures pas encore en cache sont rendues une par une, image après image : l'écran reste réactif. */
+  const THUMB_BLANK = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
+  const thumbQueue = [];
+  function pumpThumbs() {
+    const start = performance.now();
+    while (thumbQueue.length && performance.now() - start < 12) {
+      const job = thumbQueue.shift();
+      job.img.src = thumbUrl(job.def);
+      job.img.classList.remove('thumb-pending');
+    }
+    if (thumbQueue.length) requestAnimationFrame(pumpThumbs);
+  }
   function thumbCanvas(def, size) {
     const img = document.createElement('img');
-    img.src = thumbUrl(def);
     img.width = img.height = size;
     img.alt = CATALOG[def.type].name;
+    const cached = thumbCache.get(def.type + ':' + def.hue + ':' + def.seed + ':160');
+    if (cached) {
+      img.src = cached;
+    } else {
+      img.src = THUMB_BLANK;
+      img.className = 'thumb-pending';
+      if (!thumbQueue.length) requestAnimationFrame(pumpThumbs);
+      thumbQueue.push({ img: img, def: def });
+    }
     return img;
   }
 
@@ -2294,6 +2378,8 @@
     $('bagCount').textContent = bag.marbles.length;
     renderBagFilters();
     renderDiscardBar();
+    /* Les miniatures ne sont fabriquées que quand le sac est affiché : le démarrage reste rapide. */
+    if ($('view-bag').hidden) return;
     const grid = $('bagGrid');
     grid.classList.toggle('discard-mode', bagUi.discarding);
     grid.replaceChildren();
@@ -2389,7 +2475,7 @@
     const wait = bag.nextPackAt - Date.now();
     const ready = wait <= 0;
     $('packDot').hidden = !ready;
-    $('ticketCount').textContent = ticketsText(bag.tickets);
+    $('ticketCount').textContent = bag.tickets;
     $('claimBtn').disabled = !ready;
     $('dropBtn').disabled = bag.tickets < 1;
     $('ticketInfo').textContent = 'Il te reste ' + ticketsText(bag.tickets) + '.';
@@ -2514,7 +2600,63 @@
     box.append(no);
   }
 
+  function renderAlbum() {
+    markSeen();
+    const total = TYPES.length;
+    const found = TYPES.filter((t) => bag.seen.includes(t)).length;
+    $('albumCount').textContent = found + '/' + total;
+    $('albumSummary').textContent = found === total
+      ? 'Album complet : tu as trouvé les ' + total + ' billes !'
+      : found + ' billes trouvées sur ' + total + '. Les cases en pointillés restent à découvrir dans la machine ou en duel.';
+    $('albumBar').style.width = Math.round((found / total) * 100) + '%';
+    if ($('view-album').hidden) return;
+    const box = $('albumGroups');
+    box.replaceChildren();
+    ['legend', 'rare', 'uncommon', 'common'].forEach(function (r) {
+      const types = typesOf(r);
+      const group = document.createElement('section');
+      group.className = 'album-group';
+      const h = document.createElement('h3');
+      const title = document.createElement('span');
+      title.className = 'chip r-' + r;
+      title.textContent = RARITIES[r].name;
+      const cnt = document.createElement('span');
+      cnt.className = 'num';
+      cnt.textContent = types.filter((t) => bag.seen.includes(t)).length + '/' + types.length;
+      h.append(title, cnt);
+      const grid = document.createElement('div');
+      grid.className = 'grid';
+      types.forEach(function (t) {
+        const owned = bag.marbles.filter((m) => m.type === t);
+        let card;
+        if (bag.seen.includes(t)) {
+          const def = owned[0] || { type: t, hue: 200, seed: 1000 + TYPES.indexOf(t) * 7919 };
+          card = cardEl(def, null, false);
+          const n = document.createElement('span');
+          n.className = 'owned';
+          n.textContent = owned.length ? 'x' + owned.length + ' dans ton sac' : 'Plus dans ton sac';
+          card.append(n);
+        } else {
+          card = document.createElement('div');
+          card.className = 'card locked';
+          const q = document.createElement('span');
+          q.className = 'mystery';
+          q.textContent = '?';
+          q.setAttribute('aria-hidden', 'true');
+          const name = document.createElement('span');
+          name.className = 'card-name';
+          name.textContent = 'À découvrir';
+          card.append(q, name);
+        }
+        grid.append(card);
+      });
+      group.append(h, grid);
+      box.append(group);
+    });
+  }
+
   function renderAll() {
+    renderAlbum();
     renderStake();
     renderBag();
     renderPack();
@@ -2522,7 +2664,9 @@
   }
 
   function showView(name) {
-    ['play', 'bag', 'pack'].forEach(function (v) { $('view-' + v).hidden = v !== name; });
+    ['play', 'bag', 'album', 'pack'].forEach(function (v) { $('view-' + v).hidden = v !== name; });
+    if (name === 'album') renderAlbum();
+    if (name === 'bag') renderBag();
     document.querySelectorAll('[data-view]').forEach(function (b) {
       b.setAttribute('aria-current', b.dataset.view === name ? 'true' : 'false');
     });
@@ -2912,11 +3056,19 @@
   setTerrain('tarmac');
   renderRates();
   resize();
-  showIdle();
-  renderAll();
+  /* La première bille compile le programme 3D (lourd) : on affiche d'abord la page et le message de chargement,
+     puis on prépare les billes. */
+  requestAnimationFrame(function () {
+    setTimeout(function () {
+      thumbUrl({ type: 'cateye', hue: 0, seed: 1 });
+      showIdle();
+      renderAll();
+      $('loading').hidden = true;
+      requestAnimationFrame(frame);
+      connectDb();
+      connectRoom();
+    }, 30);
+  });
   setInterval(renderPack, 1000);
-  requestAnimationFrame(frame);
-  connectDb();
-  connectRoom();
 })();
 </script>
