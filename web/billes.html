@@ -64,12 +64,61 @@
   .num { font-variant-numeric: tabular-nums; color: inherit; opacity: 0.75; }
 
   [hidden] { display: none !important; }
+  .header-actions { display: flex; gap: 8px; margin-left: auto; }
+  #helpBtn { min-width: 42px; font-weight: 700; }
+  .matchbar { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; font-size: 0.9rem; color: var(--muted); }
+  .matchbar strong { color: var(--ink); }
+  .banner-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .flow { padding: 4px 0; gap: 0; }
+  .step + .step { border-top: 1px solid var(--line); }
+  .step-head {
+    width: 100%; display: flex; align-items: center; gap: 12px; background: none; border: 0;
+    padding: 12px 16px; min-height: 52px; cursor: pointer; text-align: left; font: 600 15px/1.2 var(--font-body);
+  }
+  .step-head:disabled { opacity: 0.45; cursor: not-allowed; }
+  .step-num {
+    flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center;
+    background: var(--bg); border: 1px solid var(--line); font-weight: 700; font-variant-numeric: tabular-nums;
+  }
+  .step.open .step-num { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .step.done .step-num { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .step-title { flex: 1; min-width: 0; }
+  .step-sum { color: var(--muted); font-size: 0.9rem; text-align: right; overflow-wrap: anywhere; }
+  .step-body { display: none; padding: 0 16px 16px; gap: 12px; }
+  .step.open .step-body { display: grid; }
+  .step.open .step-sum { display: none; }
+  .strip { display: grid; grid-auto-flow: column; grid-auto-columns: 104px; gap: 10px; overflow-x: auto; padding: 2px 2px 8px; scroll-snap-type: x mandatory; }
+  .strip .card { scroll-snap-align: start; }
+  .terrains { display: grid; grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); gap: 10px; }
+  .terrain-card {
+    display: grid; gap: 4px; align-content: start; text-align: left; padding: 10px; cursor: pointer;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 12px; min-width: 0;
+  }
+  .terrain-card[aria-pressed="true"] { border-color: var(--ink); box-shadow: inset 0 0 0 2px var(--ink); }
+  .terrain-card strong { font-size: 0.95rem; }
+  .terrain-card span { color: var(--muted); font-size: 0.8rem; line-height: 1.3; }
+  .tswatch { display: block; height: 34px; border-radius: 8px; margin-bottom: 4px; }
+  .t-tarmac { background: radial-gradient(circle at 20% 30%, #8a8f96 2px, transparent 3px) 0 0 / 11px 11px, radial-gradient(circle at 70% 60%, #5c6168 2px, transparent 3px) 0 0 / 9px 9px, #1d1f22; }
+  .t-plate { background: repeating-linear-gradient(90deg, #6a6e73 0 3px, transparent 3px 14px), repeating-linear-gradient(0deg, #6a6e73 0 3px, transparent 3px 14px), #2a2523; }
+  .t-terre { background: radial-gradient(circle at 50% 50%, #5e4430 0 7px, transparent 9px), radial-gradient(circle at 25% 35%, #b49a7a 1.5px, transparent 2.5px) 0 0 / 10px 10px, #8a6a4c; }
+  .online { display: grid; gap: 8px; border-top: 1px dashed var(--line); padding-top: 12px; }
+  .tuto {
+    position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; background: rgba(10, 12, 15, 0.62);
+    padding-block: 16px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  .tuto-card { width: 100%; max-width: 420px; background: var(--panel); color: var(--ink); border-radius: 16px; padding: 18px; display: grid; gap: 10px; }
+  .tuto-art svg { display: block; width: 100%; height: auto; border-radius: 12px; }
+  .tuto-dots { display: flex; gap: 6px; justify-content: center; }
+  .tuto-dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
+  .tuto-dots i.on { background: var(--accent); width: 20px; border-radius: 999px; }
+  .tuto-actions { display: flex; justify-content: space-between; gap: 10px; }
   .view { display: grid; gap: 14px; }
   .stage {
     position: relative; height: min(64vh, 112vw); min-height: 340px;
     background: var(--stage); border-radius: 14px; overflow: hidden;
     touch-action: none; user-select: none; -webkit-user-select: none;
   }
+  .stage.compact { height: min(34vh, 62vw); min-height: 200px; }
   .stage canvas { display: block; width: 100%; height: 100%; touch-action: none; }
   .banner {
     position: absolute; left: 12px; right: 12px; bottom: 12px;
@@ -92,6 +141,7 @@
   }
 
   .status { font-weight: 600; min-height: 1.45em; }
+  .status:empty { display: none; }
   .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; display: grid; gap: 12px; min-width: 0; }
   .row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
   .label { color: var(--muted); font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; min-width: 6.5em; }
@@ -177,7 +227,10 @@
 <div class="app">
   <header>
     <h1>Billes</h1>
-    <button type="button" class="ghost" id="soundBtn" aria-pressed="true">Son : oui</button>
+    <div class="header-actions">
+      <button type="button" class="ghost" id="helpBtn" aria-label="Comment jouer">?</button>
+      <button type="button" class="ghost" id="soundBtn" aria-pressed="true">Son : oui</button>
+    </div>
     <nav class="tabs" aria-label="Sections">
       <button type="button" data-view="play" aria-current="true">Jouer</button>
       <button type="button" data-view="bag" aria-current="false">Sac <span class="num" id="bagCount">0</span></button>
@@ -187,6 +240,11 @@
   </header>
 
   <section class="view" id="view-play">
+    <div id="incoming" hidden></div>
+    <div class="matchbar" id="matchbar" hidden>
+      <span id="matchVs"></span>
+      <span id="matchStake"></span>
+    </div>
     <div class="stage" id="stage">
       <canvas id="gl" aria-label="Terrain de billes en 3D"></canvas>
       <div class="loading" id="loading" role="status">Préparation des billes...</div>
@@ -194,35 +252,44 @@
         <span class="thumb" id="bannerThumb"></span>
         <p class="banner-title" id="bannerTitle"></p>
         <p class="banner-sub" id="bannerSub"></p>
-        <button type="button" class="primary" id="bannerBtn">Continuer</button>
+        <div class="banner-actions">
+          <button type="button" class="primary" id="replayBtn" hidden>Rejouer</button>
+          <button type="button" class="ghost" id="bannerBtn">Continuer</button>
+        </div>
       </div>
     </div>
     <p class="status" id="status" aria-live="polite"></p>
 
-    <div class="panel" id="setup">
-      <div class="row">
-        <span class="label">Ta bille</span>
-        <button type="button" class="stake-pick" id="stakeBtn"></button>
-      </div>
-      <div class="row">
-        <span class="label">Terrain</span>
-        <div class="seg" role="group" aria-label="Terrain">
-          <button type="button" data-terrain="tarmac" aria-pressed="true">Goudron</button>
-          <button type="button" data-terrain="plate" aria-pressed="false">Plaque d'égout</button>
-          <button type="button" data-terrain="terre" aria-pressed="false">Terre</button>
+    <div class="panel flow" id="flow">
+      <div class="step" data-step="1">
+        <button type="button" class="step-head" data-open="1"><span class="step-num">1</span><span class="step-title">Ta bille</span><span class="step-sum" id="sum1"></span></button>
+        <div class="step-body">
+          <div class="strip" id="stakeStrip"></div>
+          <p class="note" id="stakeNote"></p>
+          <button type="button" class="ghost" id="toMachineBtn" hidden>Aller à la machine</button>
         </div>
       </div>
-      <div class="row">
-        <button type="button" class="primary" id="botBtn">Jouer contre l'ordi</button>
+      <div class="step" data-step="2">
+        <button type="button" class="step-head" data-open="2"><span class="step-num">2</span><span class="step-title">Le terrain</span><span class="step-sum" id="sum2"></span></button>
+        <div class="step-body">
+          <div class="terrains" role="group" aria-label="Terrain">
+            <button type="button" class="terrain-card" data-terrain="tarmac" aria-pressed="true"><i class="tswatch t-tarmac"></i><strong>Goudron</strong><span>Les gravillons dévient la bille.</span></button>
+            <button type="button" class="terrain-card" data-terrain="plate" aria-pressed="false"><i class="tswatch t-plate"></i><strong>Plaque d'égout</strong><span>Les cases retiennent la bille : tire fort.</span></button>
+            <button type="button" class="terrain-card" data-terrain="terre" aria-pressed="false"><i class="tswatch t-terre"></i><strong>Terre</strong><span>La bille freine vite. Gare au pot au centre.</span></button>
+          </div>
+        </div>
       </div>
-      <p class="note">Les deux joueurs jouent une bille de même rareté. Le gagnant prend la bille de l'autre et gagne des tickets : 1 pour une commune, 2 pour une peu commune, 4 pour une rare, 8 pour une légendaire.</p>
-    </div>
-
-    <div class="panel" id="lobby">
-      <h2>En ligne</h2>
-      <div id="incoming" hidden></div>
-      <p class="note" id="lobbyNote">Connexion à la salle...</p>
-      <ul class="peers" id="peerList"></ul>
+      <div class="step" data-step="3">
+        <button type="button" class="step-head" data-open="3"><span class="step-num">3</span><span class="step-title">Ton adversaire</span><span class="step-sum" id="sum3"></span></button>
+        <div class="step-body">
+          <button type="button" class="primary" id="botBtn">Jouer contre l'ordi</button>
+          <div class="online">
+            <span class="label">En ligne</span>
+            <p class="note" id="lobbyNote">Connexion à la salle...</p>
+            <ul class="peers" id="peerList"></ul>
+          </div>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -275,6 +342,20 @@
       <div class="rates" id="rates"></div>
     </div>
   </section>
+</div>
+
+<div class="tuto" id="tuto" hidden role="dialog" aria-modal="true" aria-labelledby="tutoTitle">
+  <div class="tuto-card">
+    <div class="tuto-art" id="tutoArt"></div>
+    <p class="label" id="tutoStep"></p>
+    <h2 id="tutoTitle"></h2>
+    <p class="note" id="tutoText"></p>
+    <div class="tuto-dots" id="tutoDots" aria-hidden="true"><i></i><i></i><i></i></div>
+    <div class="tuto-actions">
+      <button type="button" class="ghost" id="tutoSkip">Passer</button>
+      <button type="button" class="primary" id="tutoNext">Suivant</button>
+    </div>
+  </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -1780,11 +1861,14 @@
     game.phase = 'idle';
     game.targets = null;
     $('banner').hidden = true;
+    flow.step = 3;
     showIdle();
     renderAll();
   }
 
   function showBanner(title, sub, def) {
+    $('replayBtn').hidden = !(game.mode === 'bot' && game.phase === 'over' && game.active && getStake() && title.indexOf('annulée') < 0);
+    $('bannerBtn').textContent = $('replayBtn').hidden ? 'Continuer' : 'Changer de bille ou de terrain';
     $('bannerTitle').textContent = title;
     $('bannerSub').textContent = sub;
     const holder = $('bannerThumb');
@@ -1802,7 +1886,7 @@
       hideMarble(0);
     }
     hideMarble(1);
-    setStatus(stake ? 'Prêt. Choisis un adversaire.' : 'Choisis une bille dans ton sac pour jouer.');
+    setStatus('');
   }
 
   function startBotMatch() {
@@ -2352,19 +2436,64 @@
 
   const byRarity = (a, b) => RARITIES[rarityOf(b)].rank - RARITIES[rarityOf(a)].rank || a.type.localeCompare(b.type);
 
-  function renderStake() {
-    const btn = $('stakeBtn');
-    btn.replaceChildren();
+  /* Écran Jouer en 3 étapes : ta bille, le terrain, l'adversaire. Une seule étape ouverte à la fois,
+     les étapes faites se résument sur une ligne et se rouvrent d'un appui. */
+  const flow = { step: 1 };
+  const TERRAIN_NAMES = { tarmac: 'Goudron', plate: "Plaque d'égout", terre: 'Terre' };
+
+  function chooseStake(def) {
+    if (game.active) return;
+    bag.stakeUid = def.uid;
+    persist();
+    flow.step = 2;
+    showIdle();
+    renderAll();
+  }
+
+  function renderFlow() {
     const stake = getStake();
-    if (stake) {
-      btn.append(thumbCanvas(stake, 36), labelFor(stake));
-    } else {
-      const t = document.createElement('span');
-      t.textContent = bag.marbles.length ? 'Choisir dans mon sac' : 'Sac vide : va à la machine';
-      btn.append(t);
+    $('flow').hidden = game.active;
+    /* Hors partie, le terrain se fait petit : les étapes à suivre restent visibles sans défiler. */
+    $('stage').classList.toggle('compact', !game.active);
+    $('matchbar').hidden = !game.active;
+    if (game.active) {
+      const prize = TICKETS_BY_RARITY[rarityOf(game.my)];
+      $('matchVs').replaceChildren();
+      const vs = document.createElement('strong');
+      vs.textContent = 'Toi contre ' + game.oppName;
+      $('matchVs').append(vs);
+      $('matchStake').textContent = 'En jeu : ' + CATALOG[game.my.type].name + ' contre ' + CATALOG[game.opp.type].name + ', +' + ticketsText(prize) + ' au gagnant';
+      return;
     }
-    $('botBtn').disabled = !stake || game.active;
-    $('setup').querySelectorAll('button').forEach(function (b) { if (b.id !== 'botBtn') b.disabled = game.active; });
+    if (!stake) flow.step = 1;
+    $('sum1').textContent = stake ? CATALOG[stake.type].name + ' (' + RARITIES[rarityOf(stake)].name.toLowerCase() + ')' : 'À choisir';
+    $('sum2').textContent = TERRAIN_NAMES[terrain];
+    $('sum3').textContent = '';
+    document.querySelectorAll('#flow .step').forEach(function (el) {
+      const n = Number(el.dataset.step);
+      const done = n < flow.step && (n !== 1 || stake);
+      el.classList.toggle('open', n === flow.step);
+      el.classList.toggle('done', done);
+      el.querySelector('.step-num').textContent = done ? '✓' : n;
+      el.querySelector('.step-head').disabled = n > 1 && !stake;
+      el.querySelector('.step-head').setAttribute('aria-expanded', n === flow.step ? 'true' : 'false');
+    });
+    $('botBtn').disabled = !stake;
+    $('toMachineBtn').hidden = bag.marbles.length > 0;
+    if (!bag.marbles.length) {
+      $('stakeNote').textContent = 'Ton sac est vide. Lance des billes dans la machine pour en gagner.';
+    } else if (stake) {
+      const prize = TICKETS_BY_RARITY[rarityOf(stake)];
+      $('stakeNote').textContent = "Tu joues contre une bille " + RARITIES[rarityOf(stake)].name.toLowerCase() + ". Si tu gagnes : sa bille et " + ticketsText(prize) + ". Si tu perds : tu perds ta " + CATALOG[stake.type].name + '.';
+    } else {
+      $('stakeNote').textContent = "Touche la bille que tu veux jouer. Plus elle est rare, plus tu gagnes de tickets.";
+    }
+    if (flow.step !== 1) return;
+    const strip = $('stakeStrip');
+    strip.replaceChildren();
+    bag.marbles.slice().sort(byRarity).forEach(function (def) {
+      strip.append(cardEl(def, function () { chooseStake(def); }, def.uid === bag.stakeUid));
+    });
   }
 
   /* Sac : filtre par rareté, choix de la bille de jeu, et défausse de 3 billes contre 1 ticket (autant de lots qu'on veut). */
@@ -2426,11 +2555,8 @@
         ? cardEl(def, function () { togglePick(def.uid); }, picked)
         : cardEl(def, function () {
           if (game.active) return;
-          bag.stakeUid = def.uid;
-          persist();
           showView('play');
-          showIdle();
-          renderAll();
+          chooseStake(def);
         }, def.uid === bag.stakeUid);
       if (def.uid === bag.stakeUid) {
         const tag = document.createElement('span');
@@ -2694,7 +2820,7 @@
 
   function renderAll() {
     renderAlbum();
-    renderStake();
+    renderFlow();
     renderBag();
     renderPack();
     renderLobby();
@@ -2718,11 +2844,23 @@
     b.addEventListener('click', function () {
       if (game.active) return;
       setTerrain(b.dataset.terrain);
+      flow.step = 3;
       showIdle();
+      renderFlow();
     });
   });
-  $('stakeBtn').addEventListener('click', function () { showView(bag.marbles.length ? 'bag' : 'pack'); });
+  document.querySelectorAll('#flow .step-head').forEach(function (h) {
+    h.addEventListener('click', function () {
+      flow.step = Number(h.dataset.open);
+      renderFlow();
+    });
+  });
+  $('toMachineBtn').addEventListener('click', function () { showView('pack'); });
   $('botBtn').addEventListener('click', startBotMatch);
+  $('replayBtn').addEventListener('click', function () {
+    endMatch();
+    startBotMatch();
+  });
   function renderSoundBtn() {
     $('soundBtn').textContent = sound.on ? 'Son : oui' : 'Son : non';
     $('soundBtn').setAttribute('aria-pressed', sound.on ? 'true' : 'false');
@@ -2983,6 +3121,83 @@
     drawPlinko();
   }
 
+  /* ================= Tutoriel ================= */
+  /* Trois écrans, montrés au premier lancement puis accessibles avec le bouton « ? ». */
+  const TUTO_KEY = 'billes.tuto.v1';
+  const TUTO = [
+    {
+      title: 'Vise comme une pichenette',
+      text: "Pose le doigt n'importe où, glisse vers l'arrière puis relâche : la bille part à l'opposé. Plus tu tires loin, plus c'est fort. Ta main tremble un peu, alors relâche au bon moment.",
+      art: '<svg viewBox="0 0 320 150" role="img" aria-label="Glisser vers l\'arrière pour tirer"><rect width="320" height="150" fill="#24292f"/>' +
+        '<g fill="#3a4048"><circle cx="40" cy="30" r="3"/><circle cx="260" cy="40" r="2"/><circle cx="200" cy="120" r="3"/><circle cx="90" cy="115" r="2"/></g>' +
+        '<g fill="#fff" opacity="0.85"><circle cx="150" cy="75" r="3"/><circle cx="170" cy="75" r="3"/><circle cx="190" cy="75" r="3"/><circle cx="210" cy="75" r="3"/><circle cx="230" cy="75" r="3"/></g>' +
+        '<circle cx="120" cy="75" r="18" fill="#e5553f"/><circle cx="114" cy="69" r="5" fill="#fff" opacity="0.7"/>' +
+        '<path d="M100 105 L45 125" stroke="#7fa2f2" stroke-width="4" stroke-linecap="round" stroke-dasharray="2 9"/>' +
+        '<circle cx="45" cy="125" r="11" fill="none" stroke="#7fa2f2" stroke-width="3"/><text x="64" y="144" fill="#9aa6b2" font-size="12" font-family="sans-serif">glisse puis relâche</text></svg>'
+    },
+    {
+      title: 'Tique pour gagner',
+      text: "Chacun tire à son tour. Le premier tir sert à se placer. Ensuite, touche la bille de l'autre : tu la gagnes, avec des tickets. Si tu rates, c'est à l'autre de jouer.",
+      art: '<svg viewBox="0 0 320 150" role="img" aria-label="Deux billes qui se touchent"><rect width="320" height="150" fill="#24292f"/>' +
+        '<path d="M40 110 Q110 100 140 80" stroke="#9aa6b2" stroke-width="3" fill="none" stroke-dasharray="3 7"/>' +
+        '<circle cx="148" cy="78" r="18" fill="#e5553f"/><circle cx="142" cy="72" r="5" fill="#fff" opacity="0.7"/>' +
+        '<circle cx="185" cy="66" r="18" fill="#2e63d8"/><circle cx="179" cy="60" r="5" fill="#fff" opacity="0.7"/>' +
+        '<g stroke="#e6b445" stroke-width="3" stroke-linecap="round"><path d="M166 40 L166 28"/><path d="M178 44 L186 34"/><path d="M154 44 L146 34"/></g>' +
+        '<text x="200" y="120" fill="#e6b445" font-size="22" font-weight="700" font-family="sans-serif">Tic !</text></svg>'
+    },
+    {
+      title: 'Complète ta collection',
+      text: "Joue tes tickets dans la machine : plus la bille tombe sur les côtés, plus elle est rare. Pour gagner des billes rares, il faut aussi risquer les tiennes.",
+      art: '<svg viewBox="0 0 320 150" role="img" aria-label="La machine à billes"><rect width="320" height="150" fill="#24292f"/>' +
+        (function () {
+          let d = '<g fill="#eef1f4">';
+          for (let i = 0; i < 5; i++) for (let j = 0; j <= i + 2; j++) d += '<circle cx="' + (160 + (j - (i + 2) / 2) * 22) + '" cy="' + (22 + i * 18) + '" r="3"/>';
+          d += '</g>';
+          const cols = ['#e6b445', '#7fa2f2', '#4cc47e', '#9aa6b2', '#3a4048', '#9aa6b2', '#4cc47e', '#7fa2f2', '#e6b445'];
+          cols.forEach(function (c, k) { d += '<rect x="' + (61 + k * 22) + '" y="118" width="18" height="20" rx="4" fill="' + c + '"/>'; });
+          return d + '<circle cx="171" cy="50" r="7" fill="#fff"/>';
+        })() + '</svg>'
+    }
+  ];
+  const tutoState = { i: 0, back: null };
+
+  function renderTuto() {
+    const t = TUTO[tutoState.i];
+    $('tutoArt').innerHTML = t.art;
+    $('tutoStep').textContent = 'Comment jouer, ' + (tutoState.i + 1) + ' sur ' + TUTO.length;
+    $('tutoTitle').textContent = t.title;
+    $('tutoText').textContent = t.text;
+    $('tutoDots').querySelectorAll('i').forEach(function (d, k) { d.classList.toggle('on', k === tutoState.i); });
+    $('tutoNext').textContent = tutoState.i === TUTO.length - 1 ? "C'est parti" : 'Suivant';
+    $('tutoSkip').hidden = tutoState.i === TUTO.length - 1;
+  }
+
+  function openTuto() {
+    tutoState.i = 0;
+    tutoState.back = document.activeElement;
+    $('tuto').hidden = false;
+    renderTuto();
+    $('tutoNext').focus();
+  }
+
+  function closeTuto() {
+    $('tuto').hidden = true;
+    try { localStorage.setItem(TUTO_KEY, '1'); } catch (e) { /* stockage indisponible */ }
+    if (tutoState.back && tutoState.back.focus) tutoState.back.focus();
+  }
+
+  $('helpBtn').addEventListener('click', openTuto);
+  $('tutoSkip').addEventListener('click', closeTuto);
+  $('tutoNext').addEventListener('click', function () {
+    if (tutoState.i < TUTO.length - 1) { tutoState.i++; renderTuto(); } else closeTuto();
+  });
+  document.addEventListener('keydown', function (e) {
+    if ($('tuto').hidden) return;
+    if (e.key === 'Escape') closeTuto();
+    if (e.key === 'ArrowRight' && tutoState.i < TUTO.length - 1) { tutoState.i++; renderTuto(); }
+    if (e.key === 'ArrowLeft' && tutoState.i > 0) { tutoState.i--; renderTuto(); }
+  });
+
   /* ================= Boucle ================= */
   function physicsStep() {
     if (game.phase === 'idle' || game.phase === 'remote') return;
@@ -3115,9 +3330,13 @@
   requestAnimationFrame(function () {
     setTimeout(function () {
       thumbUrl({ type: 'cateye', hue: 0, seed: 1 });
+      flow.step = getStake() ? 3 : 1;
       showIdle();
       renderAll();
       $('loading').hidden = true;
+      let seenTuto = false;
+      try { seenTuto = localStorage.getItem(TUTO_KEY) === '1'; } catch (e) { seenTuto = false; }
+      if (!seenTuto) openTuto();
       requestAnimationFrame(frame);
       connectDb();
       connectRoom();
