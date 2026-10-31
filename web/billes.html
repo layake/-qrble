@@ -133,6 +133,7 @@
   }
   .chips button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
   .chips .num { margin-left: 4px; }
+  .card img, .stake-pick img, .banner img, .incoming img { filter: drop-shadow(0 3px 3px rgba(0, 0, 0, 0.28)); }
   .card { position: relative; }
   .card .tag {
     position: absolute; top: 6px; left: 6px; font-size: 0.62rem; font-weight: 700; text-transform: uppercase;
@@ -338,15 +339,6 @@
   }
 
   const pub = (def) => ({ uid: def.uid, type: def.type, hue: def.hue, seed: def.seed });
-  const hsl = (h, s, l, a) => 'hsla(' + h + ',' + s + '%,' + l + '%,' + (a === undefined ? 1 : a) + ')';
-
-  function hsl2rgb(h, s, l) {
-    s /= 100; l /= 100;
-    const k = (n) => (n + h / 30) % 12;
-    const a = s * Math.min(l, 1 - l);
-    const f = (n) => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
-    return [Math.round(f(0) * 255), Math.round(f(8) * 255), Math.round(f(4) * 255)];
-  }
 
   function formatWait(ms) {
     const s = Math.max(0, Math.ceil(ms / 1000));
@@ -356,89 +348,6 @@
     const pad = (v) => String(v).padStart(2, '0');
     return (h ? h + ' h ' : '') + pad(m) + ' min ' + pad(sec) + ' s';
   }
-
-  /* ================= Motifs des billes ================= */
-  /* Chaque motif est peint sur une texture équirectangulaire 256 x 128, à partir d'une graine : la même bille a toujours le même dessin. */
-  function wave(g, r, color, width, n) {
-    const ph = r() * Math.PI * 2;
-    const base = 14 + r() * 100;
-    const amp = 8 + r() * 18;
-    g.strokeStyle = color;
-    g.lineWidth = width;
-    g.lineCap = 'round';
-    g.beginPath();
-    for (let x = 0; x <= 256; x += 8) {
-      const y = base + amp * Math.sin((x / 256) * Math.PI * 2 * n + ph);
-      if (x === 0) g.moveTo(x, y); else g.lineTo(x, y);
-    }
-    g.stroke();
-  }
-
-  function blob(g, x, y, rad, color) {
-    for (const dx of [-256, 0, 256]) {
-      const gr = g.createRadialGradient(x + dx, y, 0, x + dx, y, rad);
-      gr.addColorStop(0, color);
-      gr.addColorStop(1, 'rgba(0,0,0,0)');
-      g.fillStyle = gr;
-      g.fillRect(x + dx - rad, y - rad, rad * 2, rad * 2);
-    }
-  }
-
-  const PAINTERS = {
-    opaque(g, r, h) {
-      g.fillStyle = hsl(h, 62, 48); g.fillRect(0, 0, 256, 128);
-      for (let i = 0; i < 8; i++) blob(g, r() * 256, r() * 128, 18 + r() * 30, hsl(h + r() * 20 - 10, 70, 40 + r() * 25, 0.35));
-    },
-    milky(g, r, h) {
-      g.fillStyle = hsl(h, 18, 93); g.fillRect(0, 0, 256, 128);
-      for (let i = 0; i < 10; i++) blob(g, r() * 256, r() * 128, 20 + r() * 26, hsl(h + r() * 40 - 20, 55, 70, 0.5));
-    },
-    agate(g, r, h) {
-      const img = g.createImageData(256, 128);
-      const pal = [hsl2rgb(22, 55, 28), hsl2rgb(h, 55, 55), hsl2rgb(40, 40, 86), hsl2rgb(18, 50, 44), hsl2rgb(30, 60, 62)];
-      const p1 = r() * 6.28;
-      const p2 = r() * 6.28;
-      const f = 0.22 + r() * 0.1;
-      for (let y = 0; y < 128; y++) {
-        for (let x = 0; x < 256; x++) {
-          const v = y * f + 3 * Math.sin((x / 256) * Math.PI * 4 + p1) + 2 * Math.sin((x / 256) * Math.PI * 6 + p2 + y * 0.05);
-          const c = pal[((Math.floor(v) % pal.length) + pal.length) % pal.length];
-          const i = (y * 256 + x) * 4;
-          img.data[i] = c[0]; img.data[i + 1] = c[1]; img.data[i + 2] = c[2]; img.data[i + 3] = 255;
-        }
-      }
-      g.putImageData(img, 0, 0);
-    },
-    oxblood(g, r, h) {
-      g.fillStyle = hsl(38, 35, 90); g.fillRect(0, 0, 256, 128);
-      for (let i = 0; i < 4; i++) wave(g, r, hsl(355, 72, 28, 0.85), 3 + r() * 5, 1 + Math.floor(r() * 2));
-      for (let i = 0; i < 2; i++) wave(g, r, hsl(h, 45, 45, 0.7), 2 + r() * 3, 2);
-    },
-    pearl(g, r, h) {
-      for (let x = 0; x < 256; x += 2) {
-        g.fillStyle = hsl(h + 50 * Math.sin((x / 256) * Math.PI * 4), 45, 84);
-        g.fillRect(x, 0, 2, 128);
-      }
-      for (let i = 0; i < 6; i++) blob(g, r() * 256, r() * 128, 30, 'rgba(255,255,255,0.35)');
-    },
-    onion(g, r, h) {
-      g.fillStyle = hsl(h, 55, 60); g.fillRect(0, 0, 256, 128);
-      for (let i = 0; i < 46; i++) {
-        const x0 = r() * 256;
-        const ph = r() * 6.28;
-        g.strokeStyle = hsl(Math.floor(r() * 360), 80, 50, 0.85);
-        g.lineWidth = 2 + r() * 3;
-        for (const dx of [-256, 0, 256]) {
-          g.beginPath();
-          for (let y = 0; y <= 128; y += 8) {
-            const x = x0 + dx + 5 * Math.sin((y / 128) * Math.PI * 2 + ph);
-            if (y === 0) g.moveTo(x, y); else g.lineTo(x, y);
-          }
-          g.stroke();
-        }
-      }
-    },
-  };
 
   /* ================= Rendu 3D ================= */
   const stageEl = $('stage');
@@ -466,20 +375,7 @@
     return t;
   }
 
-  const artCache = new Map();
-  function artFor(def) {
-    const key = def.type + ':' + def.hue + ':' + def.seed;
-    let art = artCache.get(key);
-    if (!art) {
-      const c = document.createElement('canvas');
-      c.width = 256;
-      c.height = 128;
-      PAINTERS[def.type](c.getContext('2d'), rng(def.seed), def.hue);
-      art = { canvas: c, texture: makeTexture(c) };
-      artCache.set(key, art);
-    }
-    return art;
-  }
+
 
   function tarmacTexture() {
     const n = 1024;
@@ -618,199 +514,223 @@
   }
   scene.environment = makeEnvironment(renderer);
 
-  /* Motifs qui flottent dans le verre : fond transparent, seuls les rubans et paillettes sont peints. */
-  const CORE_PAINTERS = {
-    swirl(g, r, h) {
-      for (let i = 0; i < 6; i++) wave(g, r, hsl(h + (i % 3) * 55, 80, 48 + r() * 12), 7 + r() * 9, 1 + Math.floor(r() * 2));
-    },
-    tornado(g, r, h) {
-      g.lineWidth = 10;
-      for (let k = 0; k < 4; k++) {
-        g.strokeStyle = k % 2 ? hsl(h, 85, 48) : hsl(h + 180, 75, 55);
-        const off = k * 32 + r() * 6;
-        for (const sh of [-128, 0, 128]) {
-          g.beginPath(); g.moveTo(0, off + sh); g.lineTo(256, off + sh + 128); g.stroke();
-        }
-      }
-    },
-    mica(g, r) {
-      for (let i = 0; i < 900; i++) {
-        g.fillStyle = r() < 0.25 ? hsl(45, 90, 70) : '#ffffff';
-        g.beginPath(); g.arc(r() * 256, r() * 128, 0.6 + r() * 1.1, 0, Math.PI * 2); g.fill();
-      }
-    },
-    lutz(g, r, h) {
-      for (let b = 0; b < 3; b++) {
-        const base = 25 + b * 38 + r() * 10;
-        const n = 1 + Math.floor(r() * 2);
-        const ph = r() * 6.28;
-        g.strokeStyle = hsl(h + 180, 70, 50);
-        g.lineWidth = 5;
-        g.beginPath();
-        for (let x = 0; x <= 256; x += 8) {
-          const y = base + 14 * Math.sin((x / 256) * Math.PI * 2 * n + ph);
-          if (x === 0) g.moveTo(x, y); else g.lineTo(x, y);
-        }
-        g.stroke();
-        for (let x = 0; x < 256; x += 1.2) {
-          const y = base + 14 * Math.sin((x / 256) * Math.PI * 2 * n + ph) + (r() - 0.5) * 9;
-          g.fillStyle = hsl(42, 95, 55 + r() * 25);
-          g.beginPath(); g.arc(x, y, 0.7 + r() * 0.9, 0, Math.PI * 2); g.fill();
-        }
-      }
-    }
-  };
+  /* Chaque bille est calculée comme une vraie sphère de verre (indice 1,5) : reflet de Fresnel,
+     réfraction qui fait loupe sur l'intérieur, motif en volume traversé par le rayon, teinte du verre
+     selon l'épaisseur traversée. Les billes pleines (terre, laiteuse, agate...) ont un vernis brillant. */
+  const MARBLE_VS = 'varying vec3 vObj; void main() { vObj = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }';
+  const MARBLE_FS = [
+    'uniform int uType; uniform float uSeed; uniform float uCount; uniform float uTwist; uniform float uWidth;',
+    'uniform vec3 uC1; uniform vec3 uC2; uniform vec3 uC3; uniform vec3 uAbsorb; uniform vec3 uCamObj; uniform vec3 uSun; uniform vec3 uGround;',
+    'uniform mat3 uRot;',
+    'varying vec3 vObj;',
+    'float hash3(vec3 p) { p = fract(p * 0.3183099 + vec3(0.71, 0.113, 0.419)); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }',
+    'float noise3(vec3 x) { vec3 i = floor(x); vec3 f = fract(x); f = f * f * (3.0 - 2.0 * f);',
+    '  return mix(mix(mix(hash3(i), hash3(i + vec3(1.0, 0.0, 0.0)), f.x), mix(hash3(i + vec3(0.0, 1.0, 0.0)), hash3(i + vec3(1.0, 1.0, 0.0)), f.x), f.y),',
+    '             mix(mix(hash3(i + vec3(0.0, 0.0, 1.0)), hash3(i + vec3(1.0, 0.0, 1.0)), f.x), mix(hash3(i + vec3(0.0, 1.0, 1.0)), hash3(i + vec3(1.0, 1.0, 1.0)), f.x), f.y), f.z); }',
+    'float fbm(vec3 p) { float a = 0.5; float s = 0.0; for (int i = 0; i < 4; i++) { s += a * noise3(p); p *= 2.03; a *= 0.5; } return s; }',
+    'vec3 env(vec3 d) {',
+    '  vec3 sky = mix(vec3(0.62, 0.68, 0.76), vec3(1.15), smoothstep(0.0, 0.9, d.y));',
+    '  vec3 col = d.y > 0.0 ? sky : mix(uGround, uGround * 0.55, smoothstep(0.0, -0.7, d.y));',
+    '  col += 7.0 * smoothstep(0.975, 0.99, dot(d, normalize(vec3(-0.45, 0.75, 0.45))));',
+    '  col += 2.5 * smoothstep(0.96, 0.985, dot(d, normalize(vec3(0.6, 0.45, -0.5))));',
+    '  return col; }',
+    'vec4 pick(vec4 o, vec3 c, float d) { return d > o.a ? vec4(c, d) : o; }',
+    'vec4 helix(vec3 q, float nb, float twist, float w, float rIn, float rOut) {',
+    '  float rho = length(q.xz); float phi = atan(q.z, q.x); vec4 o = vec4(0.0);',
+    '  for (int k = 0; k < 4; k++) {',
+    '    if (float(k) >= nb) break;',
+    '    float phi0 = float(k) * 6.28318 / nb + q.y * twist + uSeed * 6.28318;',
+    '    float dphi = abs(mod(phi - phi0 + 3.14159, 6.28318) - 3.14159);',
+    '    float d = smoothstep(w, 0.0, dphi * max(rho, 0.05)) * smoothstep(rIn, rIn + 0.1, rho) * smoothstep(rOut, rOut - 0.12, rho);',
+    '    vec3 c = k == 0 ? uC1 : (k == 1 ? uC2 : (k == 2 ? uC3 : mix(uC1, vec3(1.0), 0.5)));',
+    '    o = pick(o, c, d); }',
+    '  return o; }',
+    'vec4 sparkle(vec3 q, float scale, float amount) {',
+    '  vec3 g = q * scale + uSeed * 37.0; vec3 i = floor(g); vec3 f = fract(g) - 0.5;',
+    '  float h = hash3(i); vec3 off = vec3(hash3(i + 1.3), hash3(i + 2.7), hash3(i + 5.1)) - 0.5;',
+    '  float d = smoothstep(0.16, 0.0, length(f - off * 0.6)) * step(1.0 - amount, h);',
+    '  return vec4(mix(vec3(1.4), vec3(1.6, 1.1, 0.45), step(0.5, hash3(i + 9.1))), d); }',
+    'float ell(vec3 q, vec3 c, vec3 r) { return length((q - c) / r) - 1.0; }',
+    'vec4 core(vec3 q) {',
+    '  if (uType == 6) {',
+    '    float rho = length(q.xz); vec4 o = vec4(0.0);',
+    '    for (int k = 0; k < 4; k++) {',
+    '      if (float(k) >= uCount) break;',
+    '      float a = uSeed * 6.28318 + float(k) * 3.14159 / uCount + q.y * uTwist;',
+    '      float d = abs(dot(q, vec3(cos(a), 0.0, sin(a))));',
+    '      float w = uWidth * (1.0 - q.y * q.y / 0.75);',
+    '      float dens = smoothstep(0.045, 0.0, d) * step(rho, w) * step(abs(q.y), 0.86);',
+    '      vec3 c = k == 0 ? uC1 : (k == 1 ? uC2 : (k == 2 ? uC3 : uC1));',
+    '      o = pick(o, c, dens); }',
+    '    return o; }',
+    '  if (uType == 7) return helix(q, 3.0, 2.2 + uTwist, 0.07, 0.25, 0.9);',
+    '  if (uType == 8) return helix(q, 2.0, 6.0, 0.05, 0.0, 0.55);',
+    '  if (uType == 9) { vec4 s = sparkle(q, 16.0, 0.4); s.a *= step(length(q), 0.95); return s; }',
+    '  if (uType == 10) { vec4 hb = helix(q, 2.0, 2.6, 0.05, 0.3, 0.9); vec4 band = helix(q, 2.0, 2.6, 0.22, 0.3, 0.9); vec4 s = sparkle(q, 34.0, 0.9); s.a *= band.a; return s.a > hb.a ? s : vec4(vec3(0.95), hb.a); }',
+    '  if (uType == 11) {',
+    '    float d = min(ell(q, vec3(-0.05, -0.08, 0.0), vec3(0.3, 0.19, 0.16)), ell(q, vec3(0.24, 0.1, 0.0), vec3(0.13, 0.12, 0.11)));',
+    '    d = min(d, ell(q, vec3(0.26, 0.24, 0.05), vec3(0.03, 0.08, 0.03)));',
+    '    d = min(d, ell(q, vec3(0.26, 0.24, -0.05), vec3(0.03, 0.08, 0.03)));',
+    '    d = min(d, ell(q, vec3(-0.2, -0.3, 0.07), vec3(0.04, 0.12, 0.04)));',
+    '    d = min(d, ell(q, vec3(-0.2, -0.3, -0.07), vec3(0.04, 0.12, 0.04)));',
+    '    d = min(d, ell(q, vec3(0.1, -0.3, 0.07), vec3(0.04, 0.12, 0.04)));',
+    '    d = min(d, ell(q, vec3(0.1, -0.3, -0.07), vec3(0.04, 0.12, 0.04)));',
+    '    d = min(d, ell(q, vec3(-0.37, 0.05, 0.0), vec3(0.1, 0.03, 0.03)));',
+    '    float shade = 0.75 + 0.35 * clamp(q.y * 2.0 + 0.4, 0.0, 1.0);',
+    '    return vec4(vec3(0.92, 0.9, 0.86) * shade, smoothstep(0.08, -0.02, d)); }',
+    '  return vec4(0.0); }',
+    'vec3 solidAlbedo(vec3 p, float cosi) {',
+    '  if (uType == 0) return uC1 * (0.85 + 0.3 * fbm(p * 2.5 + uSeed * 9.0));',
+    '  if (uType == 1) return mix(vec3(0.92, 0.93, 0.95), uC1, 0.35 * smoothstep(0.35, 0.8, fbm(p * 2.2 + uSeed * 5.0)));',
+    '  if (uType == 2) { float v = dot(p, normalize(vec3(0.3, 1.0, 0.2))) * 6.0 + fbm(p * 2.0 + uSeed * 7.0) * 5.0; float b = fract(v);',
+    '    return b < 0.3 ? vec3(0.32, 0.14, 0.05) : (b < 0.55 ? uC1 : (b < 0.8 ? vec3(0.85, 0.72, 0.55) : vec3(0.55, 0.3, 0.12))); }',
+    '  if (uType == 3) { float st = smoothstep(0.44, 0.54, fbm(vec3(p.x * 1.6, p.y * 4.5, p.z * 1.6) + uSeed * 4.0)); return mix(vec3(0.88, 0.84, 0.76), vec3(0.32, 0.02, 0.03), st); }',
+    '  if (uType == 4) return vec3(0.82) + 0.18 * cos(6.28318 * (vec3(0.0, 0.33, 0.67) + cosi * 1.4 + uSeed));',
+    '  float phi = atan(p.z, p.x); float s = fract(phi / 6.28318 * 9.0 + fbm(p * 3.0 + uSeed * 3.0) * 0.9 + p.y * 0.4);',
+    '  return s < 0.25 ? uC1 : (s < 0.5 ? vec3(0.95) : (s < 0.75 ? uC2 : uC3)); }',
+    'void main() {',
+    '  vec3 p = normalize(vObj); vec3 n = p;',
+    '  vec3 v = normalize(p - uCamObj);',
+    '  float cosi = clamp(dot(-v, n), 0.0, 1.0);',
+    '  float F = 0.04 + 0.96 * pow(1.0 - cosi, 5.0);',
+    '  vec3 refl = env(normalize(uRot * reflect(v, n)));',
+    '  vec3 col;',
+    '  if (uType <= 5) {',
+    '    vec3 nW = normalize(uRot * n);',
+    '    vec3 alb = solidAlbedo(p, cosi);',
+    '    float diff = max(dot(nW, uSun), 0.0);',
+    '    float wrap = uType == 1 ? max((dot(nW, uSun) + 0.6) / 1.6, 0.0) : diff;',
+    '    vec3 lit = alb * (env(nW) * 0.38 + vec3(1.05) * wrap);',
+    '    if (uType == 4) F = max(F, 0.08);',
+    '    col = mix(lit, refl, F);',
+    '  } else {',
+    '    vec3 t = refract(v, n, 1.0 / 1.5);',
+    '    float L = -2.0 * dot(p, t);',
+    '    vec4 acc = vec4(0.0);',
+    '    for (int i = 0; i < 48; i++) {',
+    '      vec3 q = p + t * ((float(i) + 0.5) / 48.0 * L);',
+    '      vec4 c = core(q);',
+    '      float a = clamp(c.a * (uType == 11 ? 1.0 : 0.6), 0.0, 1.0);',
+    '      acc.rgb += (1.0 - acc.a) * a * c.rgb;',
+    '      acc.a += (1.0 - acc.a) * a;',
+    '      if (acc.a > 0.97) break; }',
+    '    vec3 ex = p + t * L; vec3 nOut = normalize(ex);',
+    '    vec3 t2 = refract(t, -nOut, 1.5);',
+    '    if (dot(t2, t2) < 0.001) t2 = reflect(t, -nOut);',
+    '    vec3 trans = exp(-uAbsorb * L);',
+    '    vec3 bg = env(normalize(uRot * t2)) * trans;',
+    '    col = refl * F + (1.0 - F) * (acc.rgb * mix(vec3(1.0), trans, 0.5) + (1.0 - acc.a) * bg); }',
+    '  gl_FragColor = vec4(col, 1.0);',
+    '  #include <tonemapping_fragment>',
+    '  #include <encodings_fragment>',
+    '}'
+  ].join('\n');
 
-  const LOOKS = {
-    opaque: { kind: 'solid', rough: 0.3 },
-    milky: { kind: 'solid', rough: 0.35 },
-    agate: { kind: 'solid', rough: 0.3 },
-    oxblood: { kind: 'solid', rough: 0.3 },
-    pearl: { kind: 'solid', rough: 0.25, metal: 0.45 },
-    onion: { kind: 'solid', rough: 0.25 },
-    cateye: { kind: 'vanes' },
-    swirl: { kind: 'glass', clear: 0.95 },
-    tornado: { kind: 'glass', clear: 0.95 },
-    mica: { kind: 'glass', clear: 0.55 },
-    lutz: { kind: 'glass', clear: 0.5 },
-    sulphide: { kind: 'figure' }
-  };
+  const TYPE_ID = { opaque: 0, milky: 1, agate: 2, oxblood: 3, pearl: 4, onion: 5, cateye: 6, swirl: 7, tornado: 8, mica: 9, lutz: 10, sulphide: 11 };
+  const GLASS_TYPES = ['cateye', 'swirl', 'tornado', 'mica', 'lutz', 'sulphide'];
+  const isGlass = (def) => GLASS_TYPES.includes(def.type);
+  const SUN_DIR = new THREE.Vector3(-6, 14, 6).normalize();
+  const GROUND_DUEL = new THREE.Color(0x6b737b).convertSRGBToLinear();
+  const GROUND_THUMB = new THREE.Color(0xb8bec5).convertSRGBToLinear();
+  const unitSphere = new THREE.SphereGeometry(1, 64, 48);
+  const tmpInv = new THREE.Matrix4();
+  const tmpRot = new THREE.Matrix4();
 
-  const unitSphere = new THREE.SphereGeometry(1, 48, 32);
-  const coreArtCache = new Map();
+  const linColor = (h, s, l) => new THREE.Color().setHSL((((h % 360) + 360) % 360) / 360, s, l).convertSRGBToLinear();
 
-  function coreArtFor(def) {
-    const key = def.type + ':' + def.hue + ':' + def.seed;
-    let tex = coreArtCache.get(key);
-    if (!tex) {
-      const c = document.createElement('canvas');
-      c.width = 256;
-      c.height = 128;
-      CORE_PAINTERS[def.type](c.getContext('2d'), rng(def.seed), def.hue);
-      tex = makeTexture(c);
-      coreArtCache.set(key, tex);
-    }
-    return tex;
+  function marbleMaterial(def, ground) {
+    const r = rng(def.seed);
+    const h = def.hue;
+    /* Verre clair : légère teinte bleu-vert, comme le verre réel. Verre teinté pour Mica et Lutz. */
+    const tint = linColor(h, 0.7, 0.45);
+    const absorb = def.type === 'mica' || def.type === 'lutz'
+      ? new THREE.Vector3(1 - tint.r, 1 - tint.g, 1 - tint.b).multiplyScalar(2.2)
+      : new THREE.Vector3(0.35, 0.12, 0.2);
+    const uniforms = {
+      uType: { value: TYPE_ID[def.type] },
+      uSeed: { value: r() },
+      uCount: { value: 3 + Math.floor(r() * 2) },
+      uTwist: { value: (r() - 0.5) * 1.2 },
+      uWidth: { value: 0.3 + r() * 0.14 },
+      uC1: { value: def.type === 'agate' ? linColor(15 + (h % 35), 0.65, 0.42) : linColor(h, 0.85, def.type === 'opaque' ? 0.45 : 0.5) },
+      uC2: { value: linColor(h + 110 + r() * 80, 0.85, 0.5) },
+      uC3: { value: linColor(h + 240, 0.8, 0.55) },
+      uAbsorb: { value: absorb },
+      uCamObj: { value: new THREE.Vector3() },
+      uRot: { value: new THREE.Matrix3() },
+      uSun: { value: SUN_DIR },
+      uGround: { value: ground }
+    };
+    return new THREE.ShaderMaterial({ uniforms: uniforms, vertexShader: MARBLE_VS, fragmentShader: MARBLE_FS });
   }
 
-  /* Coque de verre : la transmission garde les reflets visibles tout en laissant voir l'intérieur. */
-  function glassShell(color, clear) {
-    const m = new THREE.Mesh(unitSphere, new THREE.MeshPhysicalMaterial({
-      color: color, metalness: 0, roughness: 0.04, clearcoat: 1, clearcoatRoughness: 0.03,
-      transmission: clear, transparent: true, envMapIntensity: 1.4
-    }));
-    m.castShadow = true;
-    m.renderOrder = 2;
-    const rimMat = new THREE.ShaderMaterial({
-      uniforms: { uColor: { value: color.clone().multiplyScalar(0.45) }, uStrength: { value: 0.75 } },
-      vertexShader: 'varying vec3 vN; varying vec3 vV; void main() { vec4 mv = modelViewMatrix * vec4(position, 1.0); vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }',
-      fragmentShader: 'uniform vec3 uColor; uniform float uStrength; varying vec3 vN; varying vec3 vV; void main() { float f = pow(1.0 - abs(dot(normalize(vN), normalize(vV))), 2.5); gl_FragColor = vec4(uColor, f * uStrength); }',
-      transparent: true, depthWrite: false
-    });
-    /* Liseré : le bord du verre est plus épais vu de côté, il apparaît plus sombre, comme une vraie bille. */
-    const rim = new THREE.Mesh(unitSphere, rimMat);
-    rim.renderOrder = 3;
-    m.add(rim);
+  function buildMarbleVisual(def, ground) {
+    const mat = marbleMaterial(def, ground || GROUND_DUEL);
+    const mesh = new THREE.Mesh(unitSphere, mat);
+    mesh.scale.setScalar(R);
+    mesh.onBeforeRender = function (rend, sc, cam) {
+      tmpInv.copy(this.matrixWorld).invert();
+      mat.uniforms.uCamObj.value.setFromMatrixPosition(cam.matrixWorld).applyMatrix4(tmpInv);
+      tmpRot.extractRotation(this.matrixWorld);
+      mat.uniforms.uRot.value.setFromMatrix4(tmpRot);
+    };
+    return mesh;
+  }
+
+  /* Ombre au sol : une bille pleine fait une ombre douce, une bille de verre concentre la lumière au centre. */
+  function radialTexture(stops) {
+    const c = document.createElement('canvas');
+    c.width = c.height = 128;
+    const g = c.getContext('2d');
+    const gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+    stops.forEach(function (st) { gr.addColorStop(st[0], st[1]); });
+    g.fillStyle = gr;
+    g.fillRect(0, 0, 128, 128);
+    return makeTexture(c);
+  }
+  const SHADOW_TEX = radialTexture([[0, 'rgba(0,0,0,0.62)'], [0.45, 'rgba(0,0,0,0.42)'], [0.75, 'rgba(0,0,0,0.12)'], [1, 'rgba(0,0,0,0)']]);
+  const CAUSTIC_TEX = radialTexture([[0, 'rgba(255,255,255,0.9)'], [0.18, 'rgba(255,255,255,0.45)'], [0.36, 'rgba(0,0,0,0.12)'], [0.6, 'rgba(0,0,0,0.32)'], [0.8, 'rgba(0,0,0,0.12)'], [1, 'rgba(0,0,0,0)']]);
+  const shadowGeo = new THREE.PlaneGeometry(1, 1);
+
+  function makeShadow() {
+    const m = new THREE.Mesh(shadowGeo, new THREE.MeshBasicMaterial({ map: SHADOW_TEX, transparent: true, depthWrite: false }));
+    m.rotation.x = -Math.PI / 2;
+    m.scale.setScalar(R * 3);
+    m.renderOrder = 1;
     return m;
   }
 
-  function leafVane(color, rnd) {
-    const shape = new THREE.Shape();
-    const h = 0.86;
-    const w = 0.6 + rnd() * 0.35;
-    shape.moveTo(0, -h);
-    shape.quadraticCurveTo(w, 0, 0, h);
-    shape.quadraticCurveTo(-w, 0, 0, -h);
-    return new THREE.Mesh(new THREE.ShapeGeometry(shape, 16), new THREE.MeshStandardMaterial({ color: color, roughness: 0.35, side: THREE.DoubleSide }));
-  }
-
-  function figurine() {
-    const clay = new THREE.MeshStandardMaterial({ color: 0xefeae0, roughness: 0.5, metalness: 0.15 });
-    const f = new THREE.Group();
-    const part = (geo, x, y, z, sx, sy, sz) => {
-      const m = new THREE.Mesh(geo, clay);
-      m.position.set(x, y, z);
-      m.scale.set(sx, sy, sz);
-      f.add(m);
-    };
-    const ball = new THREE.SphereGeometry(1, 20, 14);
-    const leg = new THREE.CylinderGeometry(1, 1, 1, 8);
-    part(ball, -0.05, 0, 0, 0.3, 0.2, 0.17);
-    part(ball, 0.27, 0.16, 0, 0.14, 0.13, 0.12);
-    part(new THREE.ConeGeometry(1, 1, 8), 0.27, 0.32, 0.06, 0.04, 0.1, 0.04);
-    part(new THREE.ConeGeometry(1, 1, 8), 0.27, 0.32, -0.06, 0.04, 0.1, 0.04);
-    [[-0.2, 0.08], [-0.2, -0.08], [0.1, 0.08], [0.1, -0.08]].forEach(function (p) { part(leg, p[0], -0.22, p[1], 0.04, 0.2, 0.04); });
-    part(leg, -0.36, 0.1, 0, 0.03, 0.22, 0.03);
-    f.children[f.children.length - 1].rotation.z = 0.8;
-    return f;
-  }
-
-  /* Une bille = un groupe de rayon R : coque de verre et motif intérieur, ou bille pleine vernie. */
-  function buildMarbleVisual(def) {
-    const look = LOOKS[def.type];
-    const rnd = rng(def.seed + 7);
-    const group = new THREE.Group();
-    const inner = new THREE.Group();
-    group.add(inner);
-    if (look.kind === 'solid') {
-      const m = new THREE.Mesh(unitSphere, new THREE.MeshPhysicalMaterial({
-        map: artFor(def).texture, roughness: look.rough, metalness: look.metal || 0, clearcoat: 1, clearcoatRoughness: 0.03
-      }));
-      m.castShadow = true;
-      group.add(m);
-    } else if (look.kind === 'glass') {
-      const core = new THREE.Mesh(unitSphere, new THREE.MeshStandardMaterial({ map: coreArtFor(def), alphaTest: 0.5, side: THREE.DoubleSide, roughness: 0.35 }));
-      core.scale.setScalar(0.86);
-      inner.add(core);
-      group.add(glassShell(new THREE.Color().setHSL(def.hue / 360, look.clear < 0.8 ? 0.7 : 0.2, look.clear < 0.8 ? 0.35 : 0.92), look.clear));
-    } else if (look.kind === 'vanes') {
-      const n = 3 + Math.floor(rnd() * 2);
-      for (let k = 0; k < n; k++) {
-        const v = leafVane(new THREE.Color().setHSL(((def.hue + k * 35) % 360) / 360, 0.85, 0.5), rnd);
-        v.rotation.y = (k * Math.PI) / n;
-        v.rotation.z = (rnd() - 0.5) * 0.25;
-        inner.add(v);
-      }
-      group.add(glassShell(new THREE.Color().setHSL(def.hue / 360, 0.2, 0.93), 0.95));
-    } else {
-      const f = figurine();
-      f.scale.setScalar(1.25);
-      inner.add(f);
-      group.add(glassShell(new THREE.Color().setHSL((195 + (def.hue % 40)) / 360, 0.35, 0.9), 0.92));
-    }
-    group.scale.setScalar(R);
-    return group;
+  function styleShadow(shadow, def) {
+    const glassy = isGlass(def);
+    shadow.material.map = glassy ? CAUSTIC_TEX : SHADOW_TEX;
+    shadow.material.color.copy(glassy ? linColor(def.hue, 0.6, 0.75) : new THREE.Color(1, 1, 1));
+    shadow.material.needsUpdate = true;
   }
 
   function disposeVisual(obj) {
     obj.traverse(function (o) {
-      if (o.geometry && o.geometry !== unitSphere) o.geometry.dispose();
+      if (o.geometry && o.geometry !== unitSphere && o.geometry !== shadowGeo) o.geometry.dispose();
       if (o.material) o.material.dispose();
     });
   }
 
-  /* Miniatures du sac : rendues une fois par bille avec le même moteur 3D, puis gardées en image. */
+  /* Miniatures du sac : rendues une fois par bille avec le même moteur, puis gardées en image. */
   const thumbRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
   thumbRenderer.setSize(160, 160, false);
   thumbRenderer.outputEncoding = THREE.sRGBEncoding;
   thumbRenderer.toneMapping = THREE.ACESFilmicToneMapping;
   thumbRenderer.toneMappingExposure = 1.05;
   const thumbScene = new THREE.Scene();
-  thumbScene.environment = makeEnvironment(thumbRenderer);
-  thumbScene.add(new THREE.HemisphereLight(0xffffff, 0x555a60, 0.35));
-  const thumbKey = new THREE.DirectionalLight(0xffffff, 0.9);
-  thumbKey.position.set(-3, 5, 4);
-  thumbScene.add(thumbKey);
   const thumbCam = new THREE.PerspectiveCamera(30, 1, 0.1, 10);
   thumbCam.position.set(0, 0.45, 1.2);
-  thumbCam.lookAt(0, 0, 0);
+  thumbCam.lookAt(0, -0.02, 0);
   const thumbCache = new Map();
 
   function thumbUrl(def) {
     const key = def.type + ':' + def.hue + ':' + def.seed;
     let url = thumbCache.get(key);
     if (!url) {
-      const v = buildMarbleVisual(def);
+      const v = buildMarbleVisual(def, GROUND_THUMB);
       v.rotation.set(0.35, -0.6, 0.15);
       thumbScene.add(v);
       thumbRenderer.render(thumbScene, thumbCam);
@@ -825,10 +745,12 @@
   function makeMarble() {
     const mesh = new THREE.Group();
     scene.add(mesh);
+    const shadow = makeShadow();
+    scene.add(shadow);
     const body = new CANNON.Body({ mass: 1, material: mMarble });
     body.addShape(new CANNON.Sphere(R));
     world.addBody(body);
-    return { mesh: mesh, body: body };
+    return { mesh: mesh, body: body, shadow: shadow };
   }
   const marbles = [makeMarble(), makeMarble()];
 
@@ -839,6 +761,16 @@
       disposeVisual(c);
     });
     holder.add(buildMarbleVisual(def));
+    styleShadow(marbles[i].shadow, def);
+  }
+
+  function placeShadows() {
+    marbles.forEach(function (m) {
+      m.shadow.visible = m.mesh.visible;
+      if (!m.mesh.visible) return;
+      const p = m.mesh.position;
+      m.shadow.position.set(p.x + R * 0.38, Math.max(p.y - R, groundY()) + 0.004, p.z - R * 0.38);
+    });
   }
 
   marbles.forEach(function (m, i) {
@@ -2106,6 +2038,7 @@
     }
     if (!$('view-play').hidden) {
       updateCamera(false);
+      placeShadows();
       renderer.render(scene, camera);
     }
     if (plinko.balls.length || !$('view-pack').hidden) updatePlinko(dt);
