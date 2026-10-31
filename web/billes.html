@@ -359,23 +359,6 @@
 
   /* ================= Motifs des billes ================= */
   /* Chaque motif est peint sur une texture équirectangulaire 256 x 128, à partir d'une graine : la même bille a toujours le même dessin. */
-  function glass(g, h, s, l) {
-    const gr = g.createLinearGradient(0, 0, 0, 128);
-    gr.addColorStop(0, hsl(h, s, Math.min(l + 6, 98)));
-    gr.addColorStop(0.5, hsl(h, s, l));
-    gr.addColorStop(1, hsl(h, s, l - 10));
-    g.fillStyle = gr;
-    g.fillRect(0, 0, 256, 128);
-  }
-
-  function leaf(g, u, w) {
-    g.beginPath();
-    g.moveTo(u, 0);
-    g.quadraticCurveTo(u + w, 64, u, 128);
-    g.quadraticCurveTo(u - w, 64, u, 0);
-    g.fill();
-  }
-
   function wave(g, r, color, width, n) {
     const ph = r() * Math.PI * 2;
     const base = 14 + r() * 100;
@@ -401,57 +384,14 @@
     }
   }
 
-  function figurine(g, u) {
-    g.fillStyle = 'rgba(248,248,248,0.96)';
-    g.beginPath(); g.ellipse(u, 74, 15, 10, 0, 0, Math.PI * 2); g.fill();
-    g.beginPath(); g.arc(u + 13, 58, 8, 0, Math.PI * 2); g.fill();
-    g.beginPath(); g.moveTo(u + 9, 52); g.lineTo(u + 12, 42); g.lineTo(u + 16, 51); g.fill();
-    g.fillRect(u - 12, 80, 4, 12);
-    g.fillRect(u + 7, 80, 4, 12);
-    g.beginPath(); g.moveTo(u - 14, 70); g.quadraticCurveTo(u - 26, 60, u - 22, 52); g.lineWidth = 3; g.strokeStyle = 'rgba(248,248,248,0.96)'; g.stroke();
-  }
-
   const PAINTERS = {
     opaque(g, r, h) {
       g.fillStyle = hsl(h, 62, 48); g.fillRect(0, 0, 256, 128);
       for (let i = 0; i < 8; i++) blob(g, r() * 256, r() * 128, 18 + r() * 30, hsl(h + r() * 20 - 10, 70, 40 + r() * 25, 0.35));
     },
-    cateye(g, r, h) {
-      glass(g, h, 25, 86);
-      const n = 3 + Math.floor(r() * 2);
-      for (const u of [64, 192]) {
-        for (let i = 0; i < n; i++) {
-          g.fillStyle = hsl(h + i * 35, 80, 40 + r() * 15, 0.92);
-          leaf(g, u + (i - (n - 1) / 2) * 6, 6 + r() * 14);
-        }
-      }
-    },
     milky(g, r, h) {
       g.fillStyle = hsl(h, 18, 93); g.fillRect(0, 0, 256, 128);
       for (let i = 0; i < 10; i++) blob(g, r() * 256, r() * 128, 20 + r() * 26, hsl(h + r() * 40 - 20, 55, 70, 0.5));
-    },
-    swirl(g, r, h) {
-      glass(g, h, 30, 88);
-      for (let i = 0; i < 6; i++) wave(g, r, hsl(h + (i % 3) * 55, 75, 42 + r() * 12, 0.9), 6 + r() * 10, 1 + Math.floor(r() * 2));
-    },
-    tornado(g, r, h) {
-      glass(g, h, 35, 86);
-      g.lineWidth = 9;
-      for (let k = 0; k < 8; k++) {
-        g.strokeStyle = k % 2 ? hsl(h, 80, 45) : hsl(h + 180, 70, 55);
-        const off = k * 16 + r() * 4;
-        for (const s of [-128, 0, 128]) {
-          g.beginPath(); g.moveTo(0, off + s); g.lineTo(256, off + s + 128); g.stroke();
-        }
-      }
-    },
-    mica(g, r, h) {
-      g.fillStyle = hsl(h, 70, 30); g.fillRect(0, 0, 256, 128);
-      for (let i = 0; i < 520; i++) {
-        g.fillStyle = 'rgba(255,255,255,' + (0.3 + r() * 0.7).toFixed(2) + ')';
-        const s = 0.6 + r() * 1.2;
-        g.fillRect(r() * 256, r() * 128, s, s);
-      }
     },
     agate(g, r, h) {
       const img = g.createImageData(256, 128);
@@ -481,11 +421,6 @@
       }
       for (let i = 0; i < 6; i++) blob(g, r() * 256, r() * 128, 30, 'rgba(255,255,255,0.35)');
     },
-    sulphide(g, r, h) {
-      glass(g, 195 + (h % 40), 35, 88);
-      figurine(g, 64);
-      figurine(g, 192);
-    },
     onion(g, r, h) {
       g.fillStyle = hsl(h, 55, 60); g.fillRect(0, 0, 256, 128);
       for (let i = 0; i < 46; i++) {
@@ -503,19 +438,6 @@
         }
       }
     },
-    lutz(g, r, h) {
-      g.fillStyle = hsl(h, 65, 22); g.fillRect(0, 0, 256, 128);
-      for (let b = 0; b < 3; b++) {
-        const base = 25 + b * 38 + r() * 10;
-        const n = 1 + Math.floor(r() * 2);
-        const ph = r() * 6.28;
-        for (let x = 0; x < 256; x += 1.5) {
-          const y = base + 14 * Math.sin((x / 256) * Math.PI * 2 * n + ph) + (r() - 0.5) * 6;
-          g.fillStyle = hsl(45, 90, 58 + r() * 20);
-          g.beginPath(); g.arc(x, y, 0.8 + r() * 0.9, 0, Math.PI * 2); g.fill();
-        }
-      }
-    }
   };
 
   /* ================= Rendu 3D ================= */
@@ -528,10 +450,11 @@
 
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x555a60, 0.8));
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x555a60, 0.35));
   const sun = new THREE.DirectionalLight(0xffffff, 0.85);
   sun.position.set(-6, 14, 6);
   sun.castShadow = true;
+  sun.shadow.bias = -0.0005;
   sun.shadow.mapSize.set(1024, 1024);
   Object.assign(sun.shadow.camera, { left: -9, right: 9, top: 9, bottom: -9, near: 1, far: 40 });
   scene.add(sun);
@@ -662,9 +585,245 @@
     });
   }
 
+  /* ================= Billes en 3D ================= */
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.05;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+  /* Studio virtuel : un ciel dégradé et des boîtes à lumière, pour que le verre ait de vrais reflets. */
+  function makeEnvironment(r) {
+    const envScene = new THREE.Scene();
+    const c = document.createElement('canvas');
+    c.width = 16;
+    c.height = 256;
+    const g = c.getContext('2d');
+    const gr = g.createLinearGradient(0, 0, 0, 256);
+    gr.addColorStop(0, '#ffffff');
+    gr.addColorStop(0.45, '#dfe5ec');
+    gr.addColorStop(0.55, '#7d868f');
+    gr.addColorStop(1, '#262a2f');
+    g.fillStyle = gr;
+    g.fillRect(0, 0, 16, 256);
+    envScene.add(new THREE.Mesh(new THREE.SphereGeometry(20, 32, 16), new THREE.MeshBasicMaterial({ map: makeTexture(c), side: THREE.BackSide })));
+    [[-8, 9, 6, 7, 3], [9, 6, -5, 4, 2], [0, 12, -8, 10, 2]].forEach(function (b) {
+      const panel = new THREE.Mesh(new THREE.PlaneGeometry(b[3], b[4]), new THREE.MeshBasicMaterial({ color: new THREE.Color(4, 4, 4), side: THREE.DoubleSide }));
+      panel.position.set(b[0], b[1], b[2]);
+      panel.lookAt(0, 0, 0);
+      envScene.add(panel);
+    });
+    const pmrem = new THREE.PMREMGenerator(r);
+    const tex = pmrem.fromScene(envScene, 0.04).texture;
+    pmrem.dispose();
+    return tex;
+  }
+  scene.environment = makeEnvironment(renderer);
+
+  /* Motifs qui flottent dans le verre : fond transparent, seuls les rubans et paillettes sont peints. */
+  const CORE_PAINTERS = {
+    swirl(g, r, h) {
+      for (let i = 0; i < 6; i++) wave(g, r, hsl(h + (i % 3) * 55, 80, 48 + r() * 12), 7 + r() * 9, 1 + Math.floor(r() * 2));
+    },
+    tornado(g, r, h) {
+      g.lineWidth = 10;
+      for (let k = 0; k < 4; k++) {
+        g.strokeStyle = k % 2 ? hsl(h, 85, 48) : hsl(h + 180, 75, 55);
+        const off = k * 32 + r() * 6;
+        for (const sh of [-128, 0, 128]) {
+          g.beginPath(); g.moveTo(0, off + sh); g.lineTo(256, off + sh + 128); g.stroke();
+        }
+      }
+    },
+    mica(g, r) {
+      for (let i = 0; i < 900; i++) {
+        g.fillStyle = r() < 0.25 ? hsl(45, 90, 70) : '#ffffff';
+        g.beginPath(); g.arc(r() * 256, r() * 128, 0.6 + r() * 1.1, 0, Math.PI * 2); g.fill();
+      }
+    },
+    lutz(g, r, h) {
+      for (let b = 0; b < 3; b++) {
+        const base = 25 + b * 38 + r() * 10;
+        const n = 1 + Math.floor(r() * 2);
+        const ph = r() * 6.28;
+        g.strokeStyle = hsl(h + 180, 70, 50);
+        g.lineWidth = 5;
+        g.beginPath();
+        for (let x = 0; x <= 256; x += 8) {
+          const y = base + 14 * Math.sin((x / 256) * Math.PI * 2 * n + ph);
+          if (x === 0) g.moveTo(x, y); else g.lineTo(x, y);
+        }
+        g.stroke();
+        for (let x = 0; x < 256; x += 1.2) {
+          const y = base + 14 * Math.sin((x / 256) * Math.PI * 2 * n + ph) + (r() - 0.5) * 9;
+          g.fillStyle = hsl(42, 95, 55 + r() * 25);
+          g.beginPath(); g.arc(x, y, 0.7 + r() * 0.9, 0, Math.PI * 2); g.fill();
+        }
+      }
+    }
+  };
+
+  const LOOKS = {
+    opaque: { kind: 'solid', rough: 0.3 },
+    milky: { kind: 'solid', rough: 0.35 },
+    agate: { kind: 'solid', rough: 0.3 },
+    oxblood: { kind: 'solid', rough: 0.3 },
+    pearl: { kind: 'solid', rough: 0.25, metal: 0.45 },
+    onion: { kind: 'solid', rough: 0.25 },
+    cateye: { kind: 'vanes' },
+    swirl: { kind: 'glass', clear: 0.95 },
+    tornado: { kind: 'glass', clear: 0.95 },
+    mica: { kind: 'glass', clear: 0.55 },
+    lutz: { kind: 'glass', clear: 0.5 },
+    sulphide: { kind: 'figure' }
+  };
+
+  const unitSphere = new THREE.SphereGeometry(1, 48, 32);
+  const coreArtCache = new Map();
+
+  function coreArtFor(def) {
+    const key = def.type + ':' + def.hue + ':' + def.seed;
+    let tex = coreArtCache.get(key);
+    if (!tex) {
+      const c = document.createElement('canvas');
+      c.width = 256;
+      c.height = 128;
+      CORE_PAINTERS[def.type](c.getContext('2d'), rng(def.seed), def.hue);
+      tex = makeTexture(c);
+      coreArtCache.set(key, tex);
+    }
+    return tex;
+  }
+
+  /* Coque de verre : la transmission garde les reflets visibles tout en laissant voir l'intérieur. */
+  function glassShell(color, clear) {
+    const m = new THREE.Mesh(unitSphere, new THREE.MeshPhysicalMaterial({
+      color: color, metalness: 0, roughness: 0.04, clearcoat: 1, clearcoatRoughness: 0.03,
+      transmission: clear, transparent: true, envMapIntensity: 1.4
+    }));
+    m.castShadow = true;
+    m.renderOrder = 2;
+    const rimMat = new THREE.ShaderMaterial({
+      uniforms: { uColor: { value: color.clone().multiplyScalar(0.45) }, uStrength: { value: 0.75 } },
+      vertexShader: 'varying vec3 vN; varying vec3 vV; void main() { vec4 mv = modelViewMatrix * vec4(position, 1.0); vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }',
+      fragmentShader: 'uniform vec3 uColor; uniform float uStrength; varying vec3 vN; varying vec3 vV; void main() { float f = pow(1.0 - abs(dot(normalize(vN), normalize(vV))), 2.5); gl_FragColor = vec4(uColor, f * uStrength); }',
+      transparent: true, depthWrite: false
+    });
+    /* Liseré : le bord du verre est plus épais vu de côté, il apparaît plus sombre, comme une vraie bille. */
+    const rim = new THREE.Mesh(unitSphere, rimMat);
+    rim.renderOrder = 3;
+    m.add(rim);
+    return m;
+  }
+
+  function leafVane(color, rnd) {
+    const shape = new THREE.Shape();
+    const h = 0.86;
+    const w = 0.6 + rnd() * 0.35;
+    shape.moveTo(0, -h);
+    shape.quadraticCurveTo(w, 0, 0, h);
+    shape.quadraticCurveTo(-w, 0, 0, -h);
+    return new THREE.Mesh(new THREE.ShapeGeometry(shape, 16), new THREE.MeshStandardMaterial({ color: color, roughness: 0.35, side: THREE.DoubleSide }));
+  }
+
+  function figurine() {
+    const clay = new THREE.MeshStandardMaterial({ color: 0xefeae0, roughness: 0.5, metalness: 0.15 });
+    const f = new THREE.Group();
+    const part = (geo, x, y, z, sx, sy, sz) => {
+      const m = new THREE.Mesh(geo, clay);
+      m.position.set(x, y, z);
+      m.scale.set(sx, sy, sz);
+      f.add(m);
+    };
+    const ball = new THREE.SphereGeometry(1, 20, 14);
+    const leg = new THREE.CylinderGeometry(1, 1, 1, 8);
+    part(ball, -0.05, 0, 0, 0.3, 0.2, 0.17);
+    part(ball, 0.27, 0.16, 0, 0.14, 0.13, 0.12);
+    part(new THREE.ConeGeometry(1, 1, 8), 0.27, 0.32, 0.06, 0.04, 0.1, 0.04);
+    part(new THREE.ConeGeometry(1, 1, 8), 0.27, 0.32, -0.06, 0.04, 0.1, 0.04);
+    [[-0.2, 0.08], [-0.2, -0.08], [0.1, 0.08], [0.1, -0.08]].forEach(function (p) { part(leg, p[0], -0.22, p[1], 0.04, 0.2, 0.04); });
+    part(leg, -0.36, 0.1, 0, 0.03, 0.22, 0.03);
+    f.children[f.children.length - 1].rotation.z = 0.8;
+    return f;
+  }
+
+  /* Une bille = un groupe de rayon R : coque de verre et motif intérieur, ou bille pleine vernie. */
+  function buildMarbleVisual(def) {
+    const look = LOOKS[def.type];
+    const rnd = rng(def.seed + 7);
+    const group = new THREE.Group();
+    const inner = new THREE.Group();
+    group.add(inner);
+    if (look.kind === 'solid') {
+      const m = new THREE.Mesh(unitSphere, new THREE.MeshPhysicalMaterial({
+        map: artFor(def).texture, roughness: look.rough, metalness: look.metal || 0, clearcoat: 1, clearcoatRoughness: 0.03
+      }));
+      m.castShadow = true;
+      group.add(m);
+    } else if (look.kind === 'glass') {
+      const core = new THREE.Mesh(unitSphere, new THREE.MeshStandardMaterial({ map: coreArtFor(def), alphaTest: 0.5, side: THREE.DoubleSide, roughness: 0.35 }));
+      core.scale.setScalar(0.86);
+      inner.add(core);
+      group.add(glassShell(new THREE.Color().setHSL(def.hue / 360, look.clear < 0.8 ? 0.7 : 0.2, look.clear < 0.8 ? 0.35 : 0.92), look.clear));
+    } else if (look.kind === 'vanes') {
+      const n = 3 + Math.floor(rnd() * 2);
+      for (let k = 0; k < n; k++) {
+        const v = leafVane(new THREE.Color().setHSL(((def.hue + k * 35) % 360) / 360, 0.85, 0.5), rnd);
+        v.rotation.y = (k * Math.PI) / n;
+        v.rotation.z = (rnd() - 0.5) * 0.25;
+        inner.add(v);
+      }
+      group.add(glassShell(new THREE.Color().setHSL(def.hue / 360, 0.2, 0.93), 0.95));
+    } else {
+      const f = figurine();
+      f.scale.setScalar(1.25);
+      inner.add(f);
+      group.add(glassShell(new THREE.Color().setHSL((195 + (def.hue % 40)) / 360, 0.35, 0.9), 0.92));
+    }
+    group.scale.setScalar(R);
+    return group;
+  }
+
+  function disposeVisual(obj) {
+    obj.traverse(function (o) {
+      if (o.geometry && o.geometry !== unitSphere) o.geometry.dispose();
+      if (o.material) o.material.dispose();
+    });
+  }
+
+  /* Miniatures du sac : rendues une fois par bille avec le même moteur 3D, puis gardées en image. */
+  const thumbRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+  thumbRenderer.setSize(160, 160, false);
+  thumbRenderer.outputEncoding = THREE.sRGBEncoding;
+  thumbRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+  thumbRenderer.toneMappingExposure = 1.05;
+  const thumbScene = new THREE.Scene();
+  thumbScene.environment = makeEnvironment(thumbRenderer);
+  thumbScene.add(new THREE.HemisphereLight(0xffffff, 0x555a60, 0.35));
+  const thumbKey = new THREE.DirectionalLight(0xffffff, 0.9);
+  thumbKey.position.set(-3, 5, 4);
+  thumbScene.add(thumbKey);
+  const thumbCam = new THREE.PerspectiveCamera(30, 1, 0.1, 10);
+  thumbCam.position.set(0, 0.45, 1.2);
+  thumbCam.lookAt(0, 0, 0);
+  const thumbCache = new Map();
+
+  function thumbUrl(def) {
+    const key = def.type + ':' + def.hue + ':' + def.seed;
+    let url = thumbCache.get(key);
+    if (!url) {
+      const v = buildMarbleVisual(def);
+      v.rotation.set(0.35, -0.6, 0.15);
+      thumbScene.add(v);
+      thumbRenderer.render(thumbScene, thumbCam);
+      url = thumbRenderer.domElement.toDataURL('image/png');
+      thumbScene.remove(v);
+      disposeVisual(v);
+      thumbCache.set(key, url);
+    }
+    return url;
+  }
+
   function makeMarble() {
-    const mesh = new THREE.Mesh(new THREE.SphereGeometry(R, 32, 24), new THREE.MeshStandardMaterial({ roughness: 0.12, metalness: 0.1 }));
-    mesh.castShadow = true;
+    const mesh = new THREE.Group();
     scene.add(mesh);
     const body = new CANNON.Body({ mass: 1, material: mMarble });
     body.addShape(new CANNON.Sphere(R));
@@ -674,11 +833,12 @@
   const marbles = [makeMarble(), makeMarble()];
 
   function setLook(i, def) {
-    const mat = marbles[i].mesh.material;
-    mat.map = artFor(def).texture;
-    mat.roughness = def.type === 'pearl' ? 0.35 : 0.12;
-    mat.metalness = def.type === 'pearl' ? 0.25 : 0.1;
-    mat.needsUpdate = true;
+    const holder = marbles[i].mesh;
+    holder.children.slice().forEach(function (c) {
+      holder.remove(c);
+      disposeVisual(c);
+    });
+    holder.add(buildMarbleVisual(def));
   }
 
   marbles.forEach(function (m, i) {
@@ -1295,32 +1455,13 @@
   function setStatus(text) { $('status').textContent = text; }
 
   function thumbCanvas(def, size) {
-    const src = artFor(def).canvas;
-    const px = size * 2;
-    const c = document.createElement('canvas');
-    c.width = c.height = px;
-    c.style.width = c.style.height = size + 'px';
-    c.setAttribute('role', 'img');
-    c.setAttribute('aria-label', CATALOG[def.type].name);
-    const g = c.getContext('2d');
-    g.save();
-    g.beginPath();
-    g.arc(px / 2, px / 2, px / 2 - 1, 0, Math.PI * 2);
-    g.clip();
-    g.drawImage(src, 0, 0, 128, 128, 0, 0, px, px);
-    let gr = g.createRadialGradient(px * 0.35, px * 0.3, 0, px * 0.35, px * 0.3, px * 0.45);
-    gr.addColorStop(0, 'rgba(255,255,255,0.6)');
-    gr.addColorStop(1, 'rgba(255,255,255,0)');
-    g.fillStyle = gr;
-    g.fillRect(0, 0, px, px);
-    gr = g.createRadialGradient(px / 2, px / 2, px * 0.3, px / 2, px / 2, px / 2);
-    gr.addColorStop(0, 'rgba(0,0,0,0)');
-    gr.addColorStop(1, 'rgba(0,0,0,0.35)');
-    g.fillStyle = gr;
-    g.fillRect(0, 0, px, px);
-    g.restore();
-    return c;
+    const img = document.createElement('img');
+    img.src = thumbUrl(def);
+    img.width = img.height = size;
+    img.alt = CATALOG[def.type].name;
+    return img;
   }
+
 
   function labelFor(def) {
     const wrap = document.createElement('span');
@@ -1905,10 +2046,31 @@
     if (!w || !h) return;
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
-    const dist = 19.2 * Math.max(1, 1 / camera.aspect) * 1.06;
-    camera.position.set(0, dist * 0.92, dist * 0.38);
-    camera.lookAt(0, 0, 0);
     camera.updateProjectionMatrix();
+    updateCamera(true);
+  }
+
+  /* Caméra qui cadre les billes de près : elle suit leur milieu et recule quand elles s'éloignent. */
+  const camTarget = new THREE.Vector3();
+  const camPos = new THREE.Vector3(0, 18, 8);
+  const camCenter = new THREE.Vector3();
+  const camDesired = new THREE.Vector3();
+  function updateCamera(snap) {
+    const shown = marbles.filter((m) => m.mesh.visible);
+    camCenter.set(0, 0, 0);
+    shown.forEach(function (m) { camCenter.add(m.mesh.position); });
+    if (shown.length) camCenter.divideScalar(shown.length);
+    camCenter.y = 0;
+    let span = 3.2;
+    if (shown.length === 2) span = Math.max(3.2, shown[0].mesh.position.distanceTo(shown[1].mesh.position) + 2.6);
+    const fit = span / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))) / Math.min(1, camera.aspect);
+    const d = Math.min(fit * 1.15, 26);
+    camDesired.set(camCenter.x * 0.85, d * 0.8, camCenter.z * 0.85 + d * 0.6);
+    const k = snap ? 1 : 0.05;
+    camPos.lerp(camDesired, k);
+    camTarget.lerp(camCenter, k);
+    camera.position.copy(camPos);
+    camera.lookAt(camTarget);
   }
   if (window.ResizeObserver) {
     new ResizeObserver(resize).observe(stageEl);
@@ -1942,7 +2104,10 @@
         m.mesh.quaternion.copy(m.body.quaternion);
       });
     }
-    if (!$('view-play').hidden) renderer.render(scene, camera);
+    if (!$('view-play').hidden) {
+      updateCamera(false);
+      renderer.render(scene, camera);
+    }
     if (plinko.balls.length || !$('view-pack').hidden) updatePlinko(dt);
     requestAnimationFrame(frame);
   }
