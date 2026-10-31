@@ -301,7 +301,6 @@
     pearl: { name: 'Nacrée', rarity: 'rare' },
     galaxy: { name: 'Galaxie', rarity: 'rare' },
     clambroth: { name: 'Clambroth', rarity: 'rare' },
-    onion: { name: "Pelure d'oignon", rarity: 'legend' },
     lutz: { name: 'Lutz', rarity: 'legend' },
     gold: { name: 'Dorée', rarity: 'legend' },
     silver: { name: 'Argentée', rarity: 'legend' },
@@ -338,7 +337,7 @@
   const pick = (list) => list[Math.floor(Math.random() * list.length)];
 
   /* Types retirés du jeu : les billes déjà gagnées sont converties pour ne pas disparaître du sac. */
-  const RETIRED_TYPES = { oxblood: 'agate', sulphide: 'lutz', sulphide2: 'onion' };
+  const RETIRED_TYPES = { oxblood: 'agate', sulphide: 'lutz', sulphide2: 'gold', onion: 'silver' };
 
   function sanitizeDef(d) {
     if (d && typeof d === 'object' && RETIRED_TYPES[d.type]) d = Object.assign({}, d, { type: RETIRED_TYPES[d.type] });
@@ -797,7 +796,7 @@
     '}'
   ].join('\n');
 
-  const TYPE_ID = { opaque: 0, milky: 1, agate: 2, pearl: 4, onion: 5, cateye: 6, swirl: 7, tornado: 8, mica: 9, lutz: 10, clear: 12, clay: 13, nugget: 14, galaxy: 15, spider: 16, clambroth: 17, gold: 19, silver: 20, diamond: 21 };
+  const TYPE_ID = { opaque: 0, milky: 1, agate: 2, pearl: 4, cateye: 6, swirl: 7, tornado: 8, mica: 9, lutz: 10, clear: 12, clay: 13, nugget: 14, galaxy: 15, spider: 16, clambroth: 17, gold: 19, silver: 20, diamond: 21 };
   const GLASS_TYPES = ['cateye', 'swirl', 'tornado', 'mica', 'lutz', 'clear', 'nugget', 'spider', 'diamond'];
   /* Tourbillon : 0 fil fin et cœur argenté, 2 bille opaque à rubans. Tornade : 1 rubans épais opaques dans le verre, 3 rubans translucides. */
   const ribbonVariantOf = (def) => {
