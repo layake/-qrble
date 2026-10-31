@@ -1632,11 +1632,9 @@
       });
       balls.forEach(function (b) { plinko.segs.forEach(function (seg) { collideSegment(b, seg); }); });
     }
+    /* La bille disparaît dès qu'elle touche une case du bas. */
     balls.slice().forEach(function (b) {
-      if (b.y > SLOT_TOP + 0.05) {
-        b.settle += dt;
-        if (b.settle > 0.8) landBall(b);
-      }
+      if (b.y + BALL_R >= SLOT_TOP + 0.08) landBall(b);
     });
   }
 
