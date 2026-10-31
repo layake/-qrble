@@ -258,7 +258,7 @@
 
   <section class="view" id="view-pack" hidden>
     <h2>Machine à billes</h2>
-    <p class="note">Chaque ticket lâche une bille dans la cascade. Au centre il n'y a rien, juste à côté ton ticket est remboursé. Plus loin tu gagnes une bille, d'autant plus rare qu'elle tombe sur les côtés.</p>
+    <p class="note">Chaque ticket lâche une bille dans la cascade. Le centre ne donne rien ou rembourse ton ticket. Les billes ne tombent que dans les cases éloignées, d'autant plus rares qu'elles sont sur les côtés.</p>
     <div class="machine" id="machine"><canvas id="plinko" aria-label="Machine à billes"></canvas></div>
     <div class="row">
       <button type="button" class="primary" id="dropBtn">Lancer une bille (1 ticket)</button>
@@ -271,7 +271,7 @@
     </div>
     <div class="grid reveal" id="packReveal"></div>
     <div class="panel">
-      <span class="label">Chances par lancer (mesurées sur 9 000 lancers)</span>
+      <span class="label">Chances par lancer (mesurées sur 8 000 lancers)</span>
       <div class="rates" id="rates"></div>
     </div>
   </section>
@@ -2512,9 +2512,9 @@
   function renderRates() {
     const box = $('rates');
     box.replaceChildren();
-    /* Mesuré en simulant 9 000 lancers avec la même physique que la machine (répartition par case). */
-    const odds = { common: 0.24, uncommon: 0.245, rare: 0.04, legend: 0.024 };
-    [['Rien', 0.16], ['+1 ticket (remboursé)', 0.29]].forEach(function (o) {
+    /* Mesuré en simulant 8 000 lancers avec la même physique que la machine (répartition par case). */
+    const odds = { common: 0.152, uncommon: 0.069, rare: 0.024, legend: 0.015 };
+    [['Rien', 0.41], ['+1 ticket (remboursé)', 0.33]].forEach(function (o) {
       const row = document.createElement('span');
       row.textContent = o[0] + ' ≈ ' + Math.round(o[1] * 100) + ' %';
       box.append(row);
@@ -2755,15 +2755,17 @@
   const PEG_R = 0.12;
   const BALL_R = 0.28;
   const PL_GRAVITY = 14;
-  const PL_BOUNCE = 0.45;
-  const PL_NUDGE = 0.8;
+  const PL_BOUNCE = 0.4;
+  const PL_NUDGE = 0.7;
+  /* Les murs renvoient fort vers l'intérieur : une bille ne peut pas glisser le long du bord jusqu'à la case légendaire. */
+  const PL_WALL_BOUNCE = 0.75;
   const SLOT_TOP = (PL_ROWS - 1) * ROW_H + 0.55;
   const SLOT_FLOOR = SLOT_TOP + 1.0;
   /* Gain selon la distance au centre. Les cases du centre ne donnent pas de bille : on peut lâcher beaucoup de billes
      (c'est le plaisir de la machine) sans inonder la collection. */
   const SLOT_PRIZE = Array.from({ length: PL_SLOTS }, function (_, k) {
     const d = Math.abs(k - (PL_SLOTS - 1) / 2);
-    return d === 0 ? 'none' : d === 1 ? 'ticket' : d === 2 ? 'common' : d <= 4 ? 'uncommon' : d === 5 ? 'rare' : 'legend';
+    return d === 0 || d === 2 ? 'none' : d === 1 ? 'ticket' : d === 3 ? 'common' : d === 4 ? 'uncommon' : d === 5 ? 'rare' : 'legend';
   });
   const SLOT_COLORS = { none: '#3a4048', ticket: '#c98a3a', common: '#9aa6b2', uncommon: '#4cc47e', rare: '#7fa2f2', legend: '#e6b445' };
   const SLOT_LABEL = { none: '0', ticket: '+1', common: 'C', uncommon: 'PC', rare: 'R', legend: 'L' };
@@ -2822,16 +2824,17 @@
     plinko.sprite = sprite;
   }
 
-  function bounceOff(b, nx, ny, nudge) {
+  function bounceOff(b, nx, ny, nudge, bounce) {
     const vn = b.vx * nx + b.vy * ny;
     if (vn >= 0) return;
-    b.vx -= (1 + PL_BOUNCE) * vn * nx;
-    b.vy -= (1 + PL_BOUNCE) * vn * ny;
+    const e = bounce === undefined ? PL_BOUNCE : bounce;
+    b.vx -= (1 + e) * vn * nx;
+    b.vy -= (1 + e) * vn * ny;
     b.vx *= 0.98;
     if (nudge) b.vx += (Math.random() - 0.5) * PL_NUDGE;
   }
 
-  function collideCircle(b, x, y, r, nudge) {
+  function collideCircle(b, x, y, r, nudge, bounce) {
     const dx = b.x - x;
     const dy = b.y - y;
     const d = Math.sqrt(dx * dx + dy * dy);
@@ -2842,14 +2845,14 @@
     b.x = x + nx * min;
     b.y = y + ny * min;
     if (nudge && b.vx * nx + b.vy * ny < -1.5) playTick();
-    bounceOff(b, nx, ny, nudge);
+    bounceOff(b, nx, ny, nudge, bounce);
   }
 
   function collideSegment(b, s) {
     const ex = s[2] - s[0];
     const ey = s[3] - s[1];
     const t = Math.max(0, Math.min(1, ((b.x - s[0]) * ex + (b.y - s[1]) * ey) / (ex * ex + ey * ey)));
-    collideCircle(b, s[0] + ex * t, s[1] + ey * t, 0.02, false);
+    collideCircle(b, s[0] + ex * t, s[1] + ey * t, 0.02, false, PL_WALL_BOUNCE);
   }
 
   function dropBall() {
