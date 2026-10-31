@@ -258,7 +258,7 @@
 
   <section class="view" id="view-pack" hidden>
     <h2>Machine à billes</h2>
-    <p class="note">Chaque ticket lâche une bille dans la cascade. Au centre, tu gagnes une bille commune. Plus elle tombe sur les côtés, plus elle est rare.</p>
+    <p class="note">Chaque ticket lâche une bille dans la cascade. Au centre il n'y a rien, juste à côté ton ticket est remboursé. Plus loin tu gagnes une bille, d'autant plus rare qu'elle tombe sur les côtés.</p>
     <div class="machine" id="machine"><canvas id="plinko" aria-label="Machine à billes"></canvas></div>
     <div class="row">
       <button type="button" class="primary" id="dropBtn">Lancer une bille (1 ticket)</button>
@@ -271,7 +271,7 @@
     </div>
     <div class="grid reveal" id="packReveal"></div>
     <div class="panel">
-      <span class="label">Chances (mesurées sur 10 000 lancers)</span>
+      <span class="label">Chances par lancer (mesurées sur 9 000 lancers)</span>
       <div class="rates" id="rates"></div>
     </div>
   </section>
@@ -2512,8 +2512,13 @@
   function renderRates() {
     const box = $('rates');
     box.replaceChildren();
-    /* Mesuré en simulant 10 000 lancers avec la même physique que la machine. */
-    const odds = { common: 0.69, uncommon: 0.245, rare: 0.04, legend: 0.024 };
+    /* Mesuré en simulant 9 000 lancers avec la même physique que la machine (répartition par case). */
+    const odds = { common: 0.24, uncommon: 0.245, rare: 0.04, legend: 0.024 };
+    [['Rien', 0.16], ['+1 ticket (remboursé)', 0.29]].forEach(function (o) {
+      const row = document.createElement('span');
+      row.textContent = o[0] + ' ≈ ' + Math.round(o[1] * 100) + ' %';
+      box.append(row);
+    });
     Object.keys(RARITIES).forEach(function (id) {
       const row = document.createElement('span');
       const chip = document.createElement('span');
@@ -2754,12 +2759,14 @@
   const PL_NUDGE = 0.8;
   const SLOT_TOP = (PL_ROWS - 1) * ROW_H + 0.55;
   const SLOT_FLOOR = SLOT_TOP + 1.0;
-  /* Rareté selon la distance au centre : plus la case est sur le côté, plus la bille est rare. */
-  const SLOT_RARITY = Array.from({ length: PL_SLOTS }, function (_, k) {
+  /* Gain selon la distance au centre. Les cases du centre ne donnent pas de bille : on peut lâcher beaucoup de billes
+     (c'est le plaisir de la machine) sans inonder la collection. */
+  const SLOT_PRIZE = Array.from({ length: PL_SLOTS }, function (_, k) {
     const d = Math.abs(k - (PL_SLOTS - 1) / 2);
-    return d <= 2 ? 'common' : d <= 4 ? 'uncommon' : d <= 5 ? 'rare' : 'legend';
+    return d === 0 ? 'none' : d === 1 ? 'ticket' : d === 2 ? 'common' : d <= 4 ? 'uncommon' : d === 5 ? 'rare' : 'legend';
   });
-  const SLOT_COLORS = { common: '#9aa6b2', uncommon: '#4cc47e', rare: '#7fa2f2', legend: '#e6b445' };
+  const SLOT_COLORS = { none: '#3a4048', ticket: '#c98a3a', common: '#9aa6b2', uncommon: '#4cc47e', rare: '#7fa2f2', legend: '#e6b445' };
+  const SLOT_LABEL = { none: '0', ticket: '+1', common: 'C', uncommon: 'PC', rare: 'R', legend: 'L' };
   const plinko = { canvas: $('plinko'), w: 0, h: 0, S: 0, ox: 0, oy: 0, pegs: [], segs: [], rows: [], balls: [], flashes: {}, sprite: null, refreshTimer: null };
 
   /* Les murs invisibles passent par le centre des clous extérieurs : la bille ne peut ni sortir du triangle ni glisser le long du bord. */
@@ -2855,12 +2862,24 @@
 
   function landBall(b) {
     const k = Math.max(0, Math.min(PL_SLOTS - 1, Math.floor(b.x + PL_W)));
-    const def = makeDef(pick(typesOf(SLOT_RARITY[k])));
-    bag.marbles.push(def);
-    if (!getStake()) bag.stakeUid = def.uid;
+    const prize = SLOT_PRIZE[k];
     plinko.balls.splice(plinko.balls.indexOf(b), 1);
     plinko.flashes[k] = 1.4;
-    playPrize(SLOT_RARITY[k]);
+    if (prize === 'none') {
+      tone(220, 0.08, 0.15, 'sine');
+      scheduleRefresh();
+      return;
+    }
+    if (prize === 'ticket') {
+      bag.tickets += 1;
+      tone(1320, 0.1, 0.12, 'triangle');
+      scheduleRefresh();
+      return;
+    }
+    const def = makeDef(pick(typesOf(prize)));
+    bag.marbles.push(def);
+    if (!getStake()) bag.stakeUid = def.uid;
+    playPrize(prize);
     const reveal = $('packReveal');
     reveal.prepend(cardEl(def, null, false));
     while (reveal.children.length > 12) reveal.lastChild.remove();
@@ -2914,7 +2933,7 @@
     g.clearRect(0, 0, plinko.w, plinko.h);
     g.textAlign = 'center';
     g.font = '700 ' + Math.max(10, Math.round(S * 0.34)) + 'px Figtree, system-ui, sans-serif';
-    SLOT_RARITY.forEach(function (r, k) {
+    SLOT_PRIZE.forEach(function (r, k) {
       const lit = plinko.flashes[k] > 0;
       const x = X(k - PL_W + 0.07);
       const y = Y(SLOT_TOP + 0.08);
@@ -2930,8 +2949,8 @@
       g.closePath();
       g.fillStyle = lit ? '#ffffff' : SLOT_COLORS[r];
       g.fill();
-      g.fillStyle = '#14181d';
-      g.fillText(RARITIES[r].short, x + w / 2, y + h * 0.66);
+      g.fillStyle = r === 'none' && !lit ? '#9aa6b2' : '#14181d';
+      g.fillText(SLOT_LABEL[r], x + w / 2, y + h * 0.66);
     });
     g.fillStyle = '#eef1f4';
     plinko.pegs.forEach(function (p) {
