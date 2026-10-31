@@ -289,7 +289,7 @@
   const CATALOG = {
     opaque: { name: 'Unie', rarity: 'common' },
     cateye: { name: 'Œil de chat', rarity: 'common' },
-    milky: { name: 'Laiteuse', rarity: 'common' },
+    milky: { name: 'Porcelaine', rarity: 'common' },
     clear: { name: 'Transparente', rarity: 'common' },
     clay: { name: 'Terre', rarity: 'common' },
     swirl: { name: 'Tourbillon', rarity: 'uncommon' },
@@ -298,7 +298,6 @@
     nugget: { name: 'Pépite', rarity: 'uncommon' },
     spider: { name: 'Araignée', rarity: 'uncommon' },
     agate: { name: 'Agate', rarity: 'rare' },
-    oxblood: { name: 'Sang de bœuf', rarity: 'rare' },
     pearl: { name: 'Nacrée', rarity: 'rare' },
     galaxy: { name: 'Galaxie', rarity: 'rare' },
     clambroth: { name: 'Clambroth', rarity: 'rare' },
@@ -337,7 +336,11 @@
   const typesOf = (rarity) => TYPES.filter((t) => CATALOG[t].rarity === rarity);
   const pick = (list) => list[Math.floor(Math.random() * list.length)];
 
+  /* Types retirés du jeu : les billes déjà gagnées sont converties pour ne pas disparaître du sac. */
+  const RETIRED_TYPES = { oxblood: 'agate' };
+
   function sanitizeDef(d) {
+    if (d && typeof d === 'object' && RETIRED_TYPES[d.type]) d = Object.assign({}, d, { type: RETIRED_TYPES[d.type] });
     if (!d || typeof d !== 'object' || !Object.prototype.hasOwnProperty.call(CATALOG, d.type)) return null;
     const hue = ((Math.floor(Number(d.hue)) || 0) % 360 + 360) % 360;
     const seed = Math.floor(Math.abs(Number(d.seed))) || 1;
@@ -705,7 +708,6 @@
     '    vec3 col = mix(uC1, vec3(0.95), streak * 0.5);',
     '    if (uVariant > 0.5 && t < -w * 0.15) col = mix(uC2, vec3(0.95), streak * 0.4);',
     '    return mix(base, col, band); }',
-    '  if (uType == 3) { float st = smoothstep(0.44, 0.54, fbm(vec3(p.x * 1.6, p.y * 4.5, p.z * 1.6) + uSeed * 4.0)); return mix(vec3(0.88, 0.84, 0.76), vec3(0.32, 0.02, 0.03), st); }',
     '  if (uType == 7) { float phi = atan(p.z, p.x); float u = p.y * (2.0 + uWidth * 3.0) + phi / 6.28318 * sign(uTwist) + uSeed * 4.0 + fbm(p * 3.0 + uSeed * 5.0) * 0.15;',
     '    float b = fract(u * 2.0); float idx = mod(floor(u * 2.0), 3.0);',
     '    float band = smoothstep(0.0, 0.04, b) * smoothstep(0.3, 0.24, b);',
@@ -778,7 +780,7 @@
     '}'
   ].join('\n');
 
-  const TYPE_ID = { opaque: 0, milky: 1, agate: 2, oxblood: 3, pearl: 4, onion: 5, cateye: 6, swirl: 7, tornado: 8, mica: 9, lutz: 10, sulphide: 11, clear: 12, clay: 13, nugget: 14, galaxy: 15, spider: 16, clambroth: 17, sulphide2: 18 };
+  const TYPE_ID = { opaque: 0, milky: 1, agate: 2, pearl: 4, onion: 5, cateye: 6, swirl: 7, tornado: 8, mica: 9, lutz: 10, sulphide: 11, clear: 12, clay: 13, nugget: 14, galaxy: 15, spider: 16, clambroth: 17, sulphide2: 18 };
   const GLASS_TYPES = ['cateye', 'swirl', 'tornado', 'mica', 'lutz', 'sulphide', 'clear', 'nugget', 'spider', 'sulphide2'];
   /* Tourbillon : 0 fil fin et cœur argenté, 2 bille opaque à rubans. Tornade : 1 rubans épais opaques dans le verre, 3 rubans translucides. */
   const ribbonVariantOf = (def) => {
