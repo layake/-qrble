@@ -572,6 +572,23 @@
     '  float d = smoothstep(0.16, 0.0, length(f - off * 0.6)) * step(1.0 - amount, h);',
     '  return vec4(mix(vec3(1.4), vec3(1.6, 1.1, 0.45), step(0.5, hash3(i + 9.1))), d); }',
     'float ell(vec3 q, vec3 c, vec3 r) { return length((q - c) / r) - 1.0; }',
+    /* Lutz, d'après une vraie bille : verre très clair, cage de fines lignes brunes d'un pôle à l'autre (avec paillettes cuivrées)
+       et deux grandes flammes translucides au centre. */
+    'vec4 lutzCore(vec3 q) {',
+    '  float r = length(q); float rho = length(q.xz); float phi = atan(q.z, q.x);',
+    '  float u = (phi + q.y * uTwist * 0.5) / 6.28318 * 11.0 + uSeed * 11.0;',
+    '  float strand = smoothstep(0.065, 0.02, abs(fract(u) - 0.5)) * smoothstep(0.8, 0.83, r) * smoothstep(0.93, 0.9, r);',
+    '  vec4 o = vec4(vec3(0.025, 0.012, 0.006), strand);',
+    '  vec4 sp = sparkle(q, 40.0, 0.9); if (sp.a * strand > 0.1) o.rgb = vec3(1.4, 0.8, 0.35);',
+    '  for (int k = 0; k < 2; k++) {',
+    '    float a = uSeed * 6.28318 + float(k) * 1.2 + q.y * 0.6 + rho * 0.8;',
+    '    float d = abs(dot(q, vec3(cos(a), 0.0, sin(a))));',
+    '    float w = 0.5 * (1.0 - q.y * q.y / 0.85);',
+    '    float side = dot(q, vec3(-sin(a), 0.0, cos(a)));',
+    '    float dens = smoothstep(0.06, 0.015, d) * smoothstep(w, w - 0.08, rho) * step(0.0, side) * step(abs(q.y), 0.9) * 0.5;',
+    '    vec3 c = (k == 0 ? uC1 : uC2) * (0.85 + 0.25 * sin(rho * 30.0 + q.y * 8.0));',
+    '    o = pick(o, c, dens); }',
+    '  return o; }',
     /* Petites bulles d'air prises dans le verre, comme sur les billes de cour d'école. */
     'vec4 bubbles(vec3 q) {',
     '  vec3 g = q * 26.0 + uSeed * 91.0; vec3 i = floor(g); vec3 f = fract(g) - 0.5;',
@@ -661,7 +678,7 @@
     '  if (uType == 7) return swirlRibbons(q);',
     '  if (uType == 8) return swirlRibbons(q);',
     '  if (uType == 9) { vec4 s = sparkle(q, 16.0, 0.4); s.a *= step(length(q), 0.95); return s; }',
-    '  if (uType == 10) { vec4 hb = helix(q, 2.0, 2.6, 0.05, 0.3, 0.9); vec4 band = helix(q, 2.0, 2.6, 0.22, 0.3, 0.9); vec4 s = sparkle(q, 34.0, 0.9); s.a *= band.a; return s.a > hb.a ? s : vec4(vec3(0.95), hb.a); }',
+    '  if (uType == 10) return lutzCore(q);',
     '  if (uType == 11) return figureCore(figureD(q), q);',
     '  if (uType == 18) { vec3 qa = (q - vec3(0.0, 0.0, 0.3)) / 0.62; vec3 qb = (q + vec3(0.0, 0.0, 0.3)) / 0.62; qb.x = -qb.x;',
     '    return figureCore(min(figureD(qa), figureD(qb)) * 0.62, q); }',
@@ -722,7 +739,7 @@
     '      vec3 q = p + t * ((float(i) + jit) / 64.0 * L);',
     '      vec4 c = core(q);',
     '      if (uType == 6 || uType == 12 || uType == 14) { vec4 bb = bubbles(q); c = bb.a > c.a ? bb : c; }',
-    '      float a = clamp(c.a * (uType == 11 ? 1.0 : (uType == 8 || uType == 7 ? 0.85 : 0.6)), 0.0, 1.0);',
+    '      float a = clamp(c.a * (uType == 11 ? 1.0 : (uType == 8 || uType == 7 || uType == 10 ? 0.85 : 0.6)), 0.0, 1.0);',
     '      acc.rgb += (1.0 - acc.a) * a * c.rgb;',
     '      acc.a += (1.0 - acc.a) * a;',
     '      if (acc.a > 0.97) break; }',
@@ -773,10 +790,10 @@
     const swirlTint = [null, 185, 215, 40][Math.floor(rng(def.seed + 3)() * 4)];
     const tint = def.type === 'swirl' ? linColor(swirlTint || 0, 0.55, 0.6) : linColor(h, 0.7, 0.45);
     const swirlVariant = ['swirl', 'tornado', 'spider', 'nugget'].includes(def.type) ? ribbonVariantOf(def) : 1;
-    const strength = def.type === 'swirl' ? (swirlVariant === 0 && swirlTint ? 0.9 : undefined) : { mica: 2.2, lutz: 2.2, clear: 1.1, nugget: 0.9 }[def.type];
+    const strength = def.type === 'swirl' ? (swirlVariant === 0 && swirlTint ? 0.9 : undefined) : { mica: 2.2, clear: 1.1, nugget: 0.9 }[def.type];
     const absorb = strength
       ? new THREE.Vector3(1 - tint.r, 1 - tint.g, 1 - tint.b).multiplyScalar(strength)
-      : def.type === 'cateye' ? new THREE.Vector3(0.15, 0.06, 0.4) : new THREE.Vector3(0.35, 0.12, 0.2);
+      : def.type === 'cateye' ? new THREE.Vector3(0.15, 0.06, 0.4) : def.type === 'lutz' ? new THREE.Vector3(0.08, 0.04, 0.06) : new THREE.Vector3(0.35, 0.12, 0.2);
     /* Œil de chat : trio classique jaune, rouge-orange, bleu, ou une seule couleur avec des nuances. */
     const catPal = def.type === 'cateye'
       ? (rng(def.seed + 17)() < 0.6
