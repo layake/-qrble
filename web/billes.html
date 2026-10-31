@@ -195,6 +195,7 @@
     </div>
     <div class="row">
       <button type="button" class="ghost" id="claimBtn">Récupérer les tickets gratuits</button>
+      <button type="button" class="ghost" id="testTicketsBtn">+10 tickets (test)</button>
       <span class="note" id="packInfo"></span>
     </div>
     <div class="grid reveal" id="packReveal"></div>
@@ -1502,6 +1503,12 @@
   $('stakeBtn').addEventListener('click', function () { showView(bag.marbles.length ? 'bag' : 'pack'); });
   $('botBtn').addEventListener('click', startBotMatch);
   $('claimBtn').addEventListener('click', claimTickets);
+  /* Bouton de test : donne des tickets tout de suite pour essayer la machine. */
+  $('testTicketsBtn').addEventListener('click', function () {
+    bag.tickets += 10;
+    persist();
+    renderAll();
+  });
   $('dropBtn').addEventListener('click', dropBall);
   $('bannerBtn').addEventListener('click', endMatch);
 
