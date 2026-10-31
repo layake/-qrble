@@ -66,8 +66,6 @@
   [hidden] { display: none !important; }
   .header-actions { display: flex; gap: 8px; margin-left: auto; }
   #helpBtn { min-width: 42px; font-weight: 700; }
-  .matchbar { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; font-size: 0.9rem; color: var(--muted); }
-  .matchbar strong { color: var(--ink); }
   .banner-actions { display: flex; flex-wrap: wrap; gap: 8px; }
   .flow { padding: 4px 0; gap: 0; }
   .step + .step { border-top: 1px solid var(--line); }
@@ -119,6 +117,61 @@
     touch-action: none; user-select: none; -webkit-user-select: none;
   }
   .stage.compact { height: min(34vh, 62vw); min-height: 200px; }
+  /* Partie en cours : on quitte les menus, le terrain prend tout l'écran (comme une scène de jeu). */
+  body.in-match { overflow: hidden; }
+  body.in-match header, body.in-match .flow, body.in-match #incoming { display: none !important; }
+  body.in-match .stage { position: fixed; inset: 0; height: auto; min-height: 0; border-radius: 0; z-index: 40; }
+  .hud { position: absolute; inset: 0; pointer-events: none; }
+  .hud-top {
+    position: absolute; left: 0; right: 0; top: 0; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px;
+    padding: calc(env(safe-area-inset-top, 0px) + 10px) max(12px, env(safe-area-inset-right, 0px)) 24px max(12px, env(safe-area-inset-left, 0px));
+    background: linear-gradient(rgba(10, 12, 15, 0.7), rgba(10, 12, 15, 0));
+    color: #fff;
+  }
+  .hud-player { display: flex; align-items: center; gap: 8px; min-width: 0; font-weight: 700; }
+  .hud-player.opp { justify-content: flex-end; }
+  .hud-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hud-thumb img { display: block; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.5)); }
+  .hud-stake { font: 400 1rem/1 var(--font-display); color: #e6b445; text-align: center; white-space: nowrap; }
+  .hud-quit {
+    pointer-events: auto; position: absolute; left: max(12px, env(safe-area-inset-left, 0px)); top: calc(env(safe-area-inset-top, 0px) + 62px);
+    font: 600 12px/1 var(--font-body); color: #e6ebef; background: rgba(10, 12, 15, 0.45); border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 999px; padding: 8px 12px; min-height: 32px; cursor: pointer;
+  }
+  .hud-quit.confirm { background: #c0392b; border-color: #c0392b; }
+  .stage .status {
+    position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
+    max-width: calc(100% - 24px); margin: 0; padding: 10px 16px; border-radius: 999px; text-align: center;
+    background: rgba(10, 12, 15, 0.62); color: #fff; font-size: 0.95rem; pointer-events: none;
+  }
+  .turn-toast {
+    position: absolute; left: 0; right: 0; top: 42%; text-align: center; pointer-events: none; opacity: 0;
+    font: 400 clamp(2rem, 9vw, 3.2rem)/1 var(--font-display); color: #fff; text-shadow: 0 3px 12px rgba(0, 0, 0, 0.6);
+  }
+  .turn-toast.show { animation: toast 1.3s ease-out both; }
+  @keyframes toast { 0% { opacity: 0; transform: scale(0.7); } 18% { opacity: 1; transform: scale(1.05); } 30% { transform: scale(1); } 75% { opacity: 1; } 100% { opacity: 0; } }
+  .vs-intro {
+    position: absolute; inset: 0; display: grid; place-content: center; gap: 18px; text-align: center; color: #fff;
+    background: radial-gradient(circle at 50% 45%, rgba(20, 24, 30, 0.6), rgba(10, 12, 15, 0.92));
+    animation: vsfade 2s ease both;
+  }
+  .vs-row { display: flex; align-items: center; gap: 18px; }
+  .vs-side { display: grid; justify-items: center; gap: 8px; font-size: 1rem; }
+  .vs-side img { filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.6)); }
+  .vs-side.left { animation: vsleft 0.6s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
+  .vs-side.right { animation: vsright 0.6s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
+  .vs-mark { font: 400 2.6rem/1 var(--font-display); color: #e6b445; animation: vspop 0.5s 0.35s ease-out both; }
+  .vs-info { margin: 0; color: #c9d1d9; font-size: 0.95rem; }
+  @keyframes vsleft { from { transform: translateX(-60vw); } to { transform: none; } }
+  @keyframes vsright { from { transform: translateX(60vw); } to { transform: none; } }
+  @keyframes vspop { from { opacity: 0; transform: scale(2.2); } to { opacity: 1; transform: none; } }
+  @keyframes vsfade { 0%, 80% { opacity: 1; } 100% { opacity: 0; } }
+  body.in-match .banner { left: 50%; right: auto; bottom: auto; top: 50%; transform: translate(-50%, -50%); width: min(92vw, 380px); padding: 20px; grid-template-columns: 1fr; justify-items: center; text-align: center; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45); }
+  body.in-match .banner .thumb { grid-row: auto; }
+  body.in-match .banner .thumb img { width: 96px; height: 96px; }
+  body.in-match .banner-title { font-size: 1.6rem; }
+  body.in-match .banner-actions { justify-content: center; }
+  @media (prefers-reduced-motion: reduce) { .vs-side, .vs-mark, .turn-toast.show { animation: none; } .turn-toast.show { opacity: 1; } }
   .stage canvas { display: block; width: 100%; height: 100%; touch-action: none; }
   .banner {
     position: absolute; left: 12px; right: 12px; bottom: 12px;
@@ -142,6 +195,7 @@
 
   .status { font-weight: 600; min-height: 1.45em; }
   .status:empty { display: none; }
+  .hud-quit:focus-visible { outline: 3px solid #7fa2f2; }
   .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; display: grid; gap: 12px; min-width: 0; }
   .row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
   .label { color: var(--muted); font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; min-width: 6.5em; }
@@ -241,13 +295,27 @@
 
   <section class="view" id="view-play">
     <div id="incoming" hidden></div>
-    <div class="matchbar" id="matchbar" hidden>
-      <span id="matchVs"></span>
-      <span id="matchStake"></span>
-    </div>
     <div class="stage" id="stage">
       <canvas id="gl" aria-label="Terrain de billes en 3D"></canvas>
       <div class="loading" id="loading" role="status">Préparation des billes...</div>
+      <div class="hud" id="hud" hidden>
+        <div class="hud-top">
+          <div class="hud-player me"><span class="hud-thumb" id="hudMe"></span><span class="hud-name">Toi</span></div>
+          <div class="hud-stake" id="hudStake"></div>
+          <div class="hud-player opp"><span class="hud-name" id="hudOppName"></span><span class="hud-thumb" id="hudOpp"></span></div>
+        </div>
+        <button type="button" class="hud-quit" id="quitBtn">Abandonner</button>
+      </div>
+      <p class="status" id="status" aria-live="polite"></p>
+      <div class="turn-toast" id="turnToast" aria-hidden="true"></div>
+      <div class="vs-intro" id="vsIntro" hidden>
+        <div class="vs-row">
+          <div class="vs-side left"><span id="vsMe"></span><strong>Toi</strong></div>
+          <div class="vs-mark">VS</div>
+          <div class="vs-side right"><span id="vsOpp"></span><strong id="vsOppName"></strong></div>
+        </div>
+        <p class="vs-info" id="vsInfo"></p>
+      </div>
       <div class="banner" id="banner" hidden>
         <span class="thumb" id="bannerThumb"></span>
         <p class="banner-title" id="bannerTitle"></p>
@@ -258,8 +326,6 @@
         </div>
       </div>
     </div>
-    <p class="status" id="status" aria-live="polite"></p>
-
     <div class="panel flow" id="flow">
       <div class="step" data-step="1">
         <button type="button" class="step-head" data-open="1"><span class="step-num">1</span><span class="step-title">Ta bille</span><span class="step-sum" id="sum1"></span></button>
@@ -1755,24 +1821,81 @@
     game.turn = opts.starter;
     game.shotCount = 0;
     if (game.net) setPresence('playing');
-    beginTurn();
     renderAll();
+    showVsIntro(opts);
+    beginTurn();
   }
+
+  /* Entrée en scène : les deux billes arrivent de chaque côté, « VS », le terrain et l'enjeu. */
+  let introUntil = 0;
+  function showVsIntro(opts) {
+    const prize = TICKETS_BY_RARITY[rarityOf(opts.my)];
+    $('vsMe').replaceChildren(thumbCanvas(opts.my, 84));
+    $('vsOpp').replaceChildren(thumbCanvas(opts.opp, 84));
+    $('vsOppName').textContent = opts.oppName;
+    $('vsInfo').textContent = TERRAIN_NAMES[opts.terrain] + ' · le gagnant prend la bille de l\'autre et ' + ticketsText(prize);
+    const el = $('vsIntro');
+    el.hidden = false;
+    el.style.animation = 'none';
+    void el.offsetWidth;
+    el.style.animation = '';
+    introUntil = performance.now() + 2000;
+    clearTimeout(showVsIntro.t);
+    showVsIntro.t = setTimeout(function () { el.hidden = true; }, 2000);
+  }
+
+  function showTurnToast(text, delay) {
+    const el = $('turnToast');
+    clearTimeout(showTurnToast.t);
+    showTurnToast.t = setTimeout(function () {
+      el.textContent = text;
+      el.classList.remove('show');
+      void el.offsetWidth;
+      el.classList.add('show');
+    }, delay || 0);
+  }
+
+  /* Abandon : deux appuis (le premier demande confirmation). Contre l'ordi, abandonner fait perdre sa bille. */
+  function resetQuit() {
+    clearTimeout(resetQuit.t);
+    $('quitBtn').classList.remove('confirm');
+    $('quitBtn').textContent = 'Abandonner';
+  }
+  $('quitBtn').addEventListener('click', function () {
+    if (!game.active || game.phase === 'over') return;
+    const btn = $('quitBtn');
+    if (!btn.classList.contains('confirm')) {
+      btn.classList.add('confirm');
+      btn.textContent = game.mode === 'bot' ? 'Confirmer : tu perds ta bille' : 'Confirmer : quitter la partie';
+      resetQuit.t = setTimeout(resetQuit, 3500);
+      return;
+    }
+    resetQuit();
+    if (game.mode === 'bot') {
+      finish(1);
+    } else {
+      cancelMatch('Tu as quitté la partie. Personne ne perd sa bille.');
+    }
+  });
 
   function beginTurn() {
     game.shotCount = (game.shotCount || 0) + 1;
     const first = game.shotCount === 1;
+    const toastDelay = Math.max(0, introUntil - performance.now());
     if (game.turn === 0) {
       game.phase = 'aim';
       setStatus(first ? 'Premier tir : place ta bille, tu ne peux pas encore tiquer.' : "À toi de tirer. Glisse vers l'arrière puis relâche.");
+      showTurnToast('À toi !', toastDelay);
     } else if (game.mode === 'bot') {
       game.phase = 'aim';
       setStatus(first ? "L'ordi place sa bille..." : "L'ordi vise...");
+      showTurnToast("Tour de l'ordi", toastDelay);
       botTurn();
     } else {
       game.phase = 'remote';
       game.lastNetAt = Date.now();
       setStatus(game.oppName + ' tire...');
+      showTurnToast('Tour de ' + game.oppName, toastDelay);
     }
   }
 
@@ -1805,7 +1928,7 @@
         v = Math.min(Math.sqrt(2 * TERRAINS[terrain].roll * dist) * (1.05 + Math.random() * 0.25) + 0.3, V_MAX);
       }
       shoot(1, { x: Math.cos(angle), z: Math.sin(angle) }, v / V_MAX);
-    }, 900);
+    }, 900 + Math.max(0, introUntil - performance.now()));
   }
 
   function onSettled() {
@@ -2188,7 +2311,7 @@
   }
 
   const hideAim = () => dots.forEach((dot) => { dot.visible = false; });
-  const canHumanShoot = () => game.active && game.phase === 'aim' && game.turn === 0;
+  const canHumanShoot = () => game.active && game.phase === 'aim' && game.turn === 0 && performance.now() > introUntil;
 
   canvas.addEventListener('pointerdown', function (ev) {
     if (!canHumanShoot()) return;
@@ -2455,16 +2578,21 @@
     $('flow').hidden = game.active;
     /* Hors partie, le terrain se fait petit : les étapes à suivre restent visibles sans défiler. */
     $('stage').classList.toggle('compact', !game.active);
-    $('matchbar').hidden = !game.active;
+    const wasInMatch = document.body.classList.contains('in-match');
+    document.body.classList.toggle('in-match', game.active);
+    $('hud').hidden = !game.active;
     if (game.active) {
-      const prize = TICKETS_BY_RARITY[rarityOf(game.my)];
-      $('matchVs').replaceChildren();
-      const vs = document.createElement('strong');
-      vs.textContent = 'Toi contre ' + game.oppName;
-      $('matchVs').append(vs);
-      $('matchStake').textContent = 'En jeu : ' + CATALOG[game.my.type].name + ' contre ' + CATALOG[game.opp.type].name + ', +' + ticketsText(prize) + ' au gagnant';
+      if (!wasInMatch) {
+        const prize = TICKETS_BY_RARITY[rarityOf(game.my)];
+        $('hudMe').replaceChildren(thumbCanvas(game.my, 34));
+        $('hudOpp').replaceChildren(thumbCanvas(game.opp, 34));
+        $('hudOppName').textContent = game.oppName;
+        $('hudStake').textContent = '+' + ticketsText(prize);
+        resetQuit();
+      }
       return;
     }
+    if (wasInMatch) window.scrollTo(0, 0);
     if (!stake) flow.step = 1;
     $('sum1').textContent = stake ? CATALOG[stake.type].name + ' (' + RARITIES[rarityOf(stake)].name.toLowerCase() + ')' : 'À choisir';
     $('sum2').textContent = TERRAIN_NAMES[terrain];
@@ -3231,17 +3359,36 @@
   const camPos = new THREE.Vector3(0, 18, 8);
   const camCenter = new THREE.Vector3();
   const camDesired = new THREE.Vector3();
+  /* En partie, la caméra se place derrière ta bille, dans l'axe vers l'adversaire (comme au billard) :
+     sur un téléphone en hauteur, les deux billes tiennent dans la longueur de l'écran. */
+  const camAxis = new THREE.Vector3(0, 0, 1);
+  const camAxisWanted = new THREE.Vector3();
   function updateCamera(snap) {
     const shown = marbles.filter((m) => m.mesh.visible);
     camCenter.set(0, 0, 0);
     shown.forEach(function (m) { camCenter.add(m.mesh.position); });
     if (shown.length) camCenter.divideScalar(shown.length);
     camCenter.y = 0;
-    let span = 3.2;
-    if (shown.length === 2) span = Math.max(3.2, shown[0].mesh.position.distanceTo(shown[1].mesh.position) + 2.6);
-    const fit = span / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))) / Math.min(1, camera.aspect);
-    const d = Math.min(fit * 1.15, 26);
-    camDesired.set(camCenter.x * 0.85, d * 0.8, camCenter.z * 0.85 + d * 0.6);
+    const tanV = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+    let along = 3.2;
+    if (game.active && shown.length === 2) {
+      const me = marbles[0].mesh.position;
+      const opp = marbles[1].mesh.position;
+      camAxisWanted.set(me.x - opp.x, 0, me.z - opp.z);
+      along = camAxisWanted.length() + 2.6;
+      if (camAxisWanted.lengthSq() > 0.01) camAxisWanted.normalize(); else camAxisWanted.copy(camAxis);
+    } else {
+      camAxisWanted.set(0, 0, 1);
+      if (shown.length === 2) along = shown[0].mesh.position.distanceTo(shown[1].mesh.position) + 2.6;
+    }
+    camAxis.lerp(camAxisWanted, snap ? 1 : 0.04).normalize();
+    /* On vise un peu de ton côté : ta bille reste au-dessus du message en bas de l'écran. */
+    if (game.active) camCenter.addScaledVector(camAxis, along * 0.12);
+    /* Distance : la longueur entre les billes doit tenir en hauteur (vue inclinée), la largeur d'une marge en largeur. */
+    const fitV = (along * 1.05) / (2 * tanV);
+    const fitH = 3.4 / (2 * tanV * camera.aspect);
+    const d = Math.min(Math.max(fitV, fitH, 4) * 1.12, 34);
+    camDesired.set(camCenter.x + camAxis.x * d * 0.6, d * 0.8, camCenter.z + camAxis.z * d * 0.6);
     const k = snap ? 1 : 0.05;
     camPos.lerp(camDesired, k);
     camTarget.lerp(camCenter, k);
