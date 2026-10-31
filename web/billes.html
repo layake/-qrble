@@ -261,7 +261,7 @@
   const R = 0.32;
   const HALF = 6;
   const WALL_T = 0.6;
-  const WALL_H = 1.0;
+  const WALL_H = 0.45;
   const STEP = 1 / 120;
   const V_MAX = 18;
   const MAX_PULL = 4;
@@ -393,7 +393,7 @@
      Plaque : tampon de voirie rond en fonte, quadrillage anti-dérapant en relief, cartouche central plat, cadre. */
   const G = 60;
   const TARMAC_TILE = 6;
-  const COVER = { r: 9.5, cell: 1.0, ridge: 0.16, depth: 0.15, labelW: 4.4, labelD: 1.3, rimW: 1.1, rimH: 0.6 };
+  const COVER = { r: 9.5, cell: 1.0, ridge: 0.16, depth: 0.15, labelW: 4.4, labelD: 1.3, rimW: 1.1, rimH: 0.3 };
   const STONE_CELL = 0.5;
   const STONE_REACH = 0.15;
 
@@ -1391,6 +1391,28 @@
     }
   }
 
+  /* Sécurité : une bille qui saute par-dessus le mur bas est renvoyée dans le terrain. */
+  function keepInside(m) {
+    const p = m.body.position;
+    const v = m.body.velocity;
+    if (!m.mesh.visible) return;
+    if (terrain === 'plate') {
+      const lim = COVER.r - R;
+      const d = Math.hypot(p.x, p.z);
+      if (d <= lim) return;
+      const nx = p.x / d;
+      const nz = p.z / d;
+      p.x = nx * lim;
+      p.z = nz * lim;
+      const vn = v.x * nx + v.z * nz;
+      if (vn > 0) { v.x -= 1.6 * vn * nx; v.z -= 1.6 * vn * nz; }
+      return;
+    }
+    const lim = HALF - R;
+    if (Math.abs(p.x) > lim) { p.x = Math.sign(p.x) * lim; if (v.x * p.x > 0) v.x *= -0.6; }
+    if (Math.abs(p.z) > lim) { p.z = Math.sign(p.z) * lim; if (v.z * p.z > 0) v.z *= -0.6; }
+  }
+
   const allStill = () => marbles.every((m) => Math.abs(m.body.velocity.x) + Math.abs(m.body.velocity.z) < 0.01);
 
   /* ================= Sac de billes ================= */
@@ -1909,19 +1931,40 @@
     drag = { id: ev.pointerId, start: p, pull: null };
     canvas.setPointerCapture(ev.pointerId);
   });
+  /* La main tremble : la visée oscille, d'autant plus que le tir est fort. Il faut choisir le moment où on relâche.
+     Au relâchement, une petite erreur cachée s'ajoute (le pouce qui glisse). */
+  const tremorAngle = (power, t) => (0.02 + 0.1 * power * power) * (0.6 * Math.sin(t * 2.1) + 0.4 * Math.sin(t * 3.7 + 1.3));
+  function aimedPull(pull, t) {
+    const a = tremorAngle(pull.power, t);
+    const c = Math.cos(a);
+    const s = Math.sin(a);
+    return { dir: { x: pull.dir.x * c - pull.dir.z * s, z: pull.dir.x * s + pull.dir.z * c }, power: pull.power };
+  }
+  function gaussian() {
+    return Math.sqrt(-2 * Math.log(1 - Math.random())) * Math.cos(2 * Math.PI * Math.random());
+  }
+  function updateAim(now) {
+    if (drag && drag.pull) showAim(aimedPull(drag.pull, now / 1000));
+  }
+
   canvas.addEventListener('pointermove', function (ev) {
     if (!drag || ev.pointerId !== drag.id) return;
     const p = groundPoint(ev);
     if (!p) return;
     drag.pull = pullFrom(drag.start, p);
-    showAim(drag.pull);
   });
   function endDrag(ev, fire) {
     if (!drag || ev.pointerId !== drag.id) return;
     const pull = drag.pull;
     drag = null;
     hideAim();
-    if (fire && pull && pull.power > 0.06 && canHumanShoot()) shoot(0, pull.dir, pull.power);
+    if (!fire || !pull || pull.power <= 0.06 || !canHumanShoot()) return;
+    const aimed = aimedPull(pull, performance.now() / 1000);
+    const slip = gaussian() * (0.008 + 0.025 * pull.power);
+    const c = Math.cos(slip);
+    const s = Math.sin(slip);
+    const power = Math.min(1, pull.power * (1 + gaussian() * 0.04));
+    shoot(0, { x: aimed.dir.x * c - aimed.dir.z * s, z: aimed.dir.x * s + aimed.dir.z * c }, power);
   }
   canvas.addEventListener('pointerup', function (ev) { endDrag(ev, true); });
   canvas.addEventListener('pointercancel', function (ev) { endDrag(ev, false); });
@@ -2502,6 +2545,7 @@
   function physicsStep() {
     if (game.phase === 'idle' || game.phase === 'remote') return;
     world.step(STEP);
+    marbles.forEach(keepInside);
     marbles.forEach(terrainEffects);
     if (game.phase !== 'rolling') return;
     game.rollTime += STEP;
@@ -2581,6 +2625,7 @@
     }
     if (!$('view-play').hidden) {
       updateCamera(false);
+      updateAim(now);
       placeShadows();
       renderer.render(scene, camera);
     }
