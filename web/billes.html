@@ -181,7 +181,11 @@
 
   <section class="view" id="view-bag" hidden>
     <h2>Mon sac</h2>
-    <p class="note">Touche une bille pour la choisir comme bille de jeu.</p>
+    <p class="note" id="bagHint">Touche une bille pour la choisir comme bille de jeu.</p>
+    <div class="row">
+      <button type="button" class="ghost" id="discardToggle">Défausser des billes</button>
+      <button type="button" class="primary" id="discardConfirm" hidden>Défausser 3 billes contre 1 ticket</button>
+    </div>
     <div class="grid" id="bagGrid"></div>
   </section>
 
@@ -1321,6 +1325,7 @@
   }
 
   function renderBag() {
+    renderDiscard();
     $('bagCount').textContent = bag.marbles.length;
     const grid = $('bagGrid');
     grid.replaceChildren();
@@ -1332,6 +1337,14 @@
       return;
     }
     bag.marbles.slice().sort(byRarity).forEach(function (def) {
+      if (discard.on) {
+        grid.append(cardEl(def, function () {
+          if (discard.picked.has(def.uid)) discard.picked.delete(def.uid);
+          else if (discard.picked.size < DISCARD_COUNT) discard.picked.add(def.uid);
+          renderBag();
+        }, discard.picked.has(def.uid)));
+        return;
+      }
       grid.append(cardEl(def, function () {
         if (game.active) return;
         bag.stakeUid = def.uid;
@@ -1341,6 +1354,36 @@
         renderAll();
       }, def.uid === bag.stakeUid));
     });
+  }
+
+  /* Défausse : 3 billes du sac contre 1 ticket. Impossible pendant une partie, la bille en jeu doit rester dans le sac. */
+  const DISCARD_COUNT = 3;
+  const discard = { on: false, picked: new Set() };
+
+  function renderDiscard() {
+    const toggle = $('discardToggle');
+    const confirm = $('discardConfirm');
+    if (game.active) { discard.on = false; discard.picked.clear(); }
+    discard.picked.forEach(function (uid) { if (!bag.marbles.some((m) => m.uid === uid)) discard.picked.delete(uid); });
+    toggle.disabled = game.active || (!discard.on && bag.marbles.length < DISCARD_COUNT);
+    toggle.textContent = discard.on ? 'Annuler' : 'Défausser des billes';
+    confirm.hidden = !discard.on;
+    confirm.disabled = discard.picked.size !== DISCARD_COUNT;
+    confirm.textContent = 'Défausser ' + discard.picked.size + '/' + DISCARD_COUNT + ' billes contre 1 ticket';
+    $('bagHint').textContent = discard.on
+      ? 'Choisis ' + DISCARD_COUNT + ' billes à défausser.'
+      : 'Touche une bille pour la choisir comme bille de jeu.';
+  }
+
+  function confirmDiscard() {
+    if (game.active || discard.picked.size !== DISCARD_COUNT) return;
+    bag.marbles = bag.marbles.filter((m) => !discard.picked.has(m.uid));
+    if (discard.picked.has(bag.stakeUid)) bag.stakeUid = null;
+    discard.picked.clear();
+    bag.tickets += 1;
+    persist();
+    renderAll();
+    if (!game.active) showIdle();
   }
 
   const ticketsText = (n) => n + (n > 1 ? ' tickets' : ' ticket');
@@ -1503,6 +1546,12 @@
   $('stakeBtn').addEventListener('click', function () { showView(bag.marbles.length ? 'bag' : 'pack'); });
   $('botBtn').addEventListener('click', startBotMatch);
   $('claimBtn').addEventListener('click', claimTickets);
+  $('discardToggle').addEventListener('click', function () {
+    discard.on = !discard.on;
+    discard.picked.clear();
+    renderBag();
+  });
+  $('discardConfirm').addEventListener('click', confirmDiscard);
   /* Bouton de test : donne des tickets tout de suite pour essayer la machine. */
   $('testTicketsBtn').addEventListener('click', function () {
     bag.tickets += 10;
