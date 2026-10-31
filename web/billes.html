@@ -267,16 +267,15 @@
   const MAX_PULL = 4;
   const TRACK_EVERY = 1 / 15;
   const NET_TIMEOUT_MS = 20000;
-  /* Cases de la plaque : 1,5 de côté, lignes de 0,2 de large, fond enfoncé de 0,15 (environ la moitié du rayon de la bille). */
-  const PLATE = { cell: 1.5, ridge: 0.2, depth: 0.15 };
   const FREE_TICKETS = 3;
   const PACK_INTERVAL = 4 * 3600 * 1000;
   const TICKETS_BY_RARITY = { common: 1, uncommon: 2, rare: 4, legend: 8 };
   const LS_KEY = 'billes.bag.v1';
 
   const TERRAINS = {
-    tarmac: { friction: 0.5, damp: 0.42, jitter: 0.09 },
-    plate: { friction: 0.3, damp: 0.22, jitter: 0 }
+    /* roll : résistance au roulement (décélération constante en unités/s²), sand : petits écarts dus au sable. */
+    tarmac: { friction: 0.6, roll: 7, sand: 0.03 },
+    plate: { friction: 0.35, roll: 3.5, sand: 0 }
   };
 
   const RARITIES = {
@@ -374,8 +373,8 @@
   sun.position.set(-6, 14, 6);
   sun.castShadow = true;
   sun.shadow.bias = -0.0005;
-  sun.shadow.mapSize.set(1024, 1024);
-  Object.assign(sun.shadow.camera, { left: -9, right: 9, top: 9, bottom: -9, near: 1, far: 40 });
+  sun.shadow.mapSize.set(2048, 2048);
+  Object.assign(sun.shadow.camera, { left: -13, right: 13, top: 13, bottom: -13, near: 1, far: 50 });
   scene.add(sun);
 
   function makeTexture(c) {
@@ -387,60 +386,299 @@
 
 
 
-  function tarmacTexture() {
+  /* ================= Terrains ================= */
+  /* Échelle : 1 unité = 2,5 cm (une bille de 16 mm a un rayon de 0,32).
+     Goudron : enrobé de voirie, bitume noir et gravillons de 2 à 10 mm. Les gros gravillons dépassent et font dévier la bille ;
+     ce sont les mêmes cailloux qui sont dessinés et qui agissent sur la physique, au même endroit, donc le terrain s'apprend.
+     Plaque : tampon de voirie rond en fonte, quadrillage anti-dérapant en relief, cartouche central plat, cadre. */
+  const G = 60;
+  const TARMAC_TILE = 6;
+  const COVER = { r: 9.5, cell: 1.0, ridge: 0.16, depth: 0.15, labelW: 4.4, labelD: 1.3, rimW: 1.1, rimH: 0.6 };
+  const STONE_CELL = 0.5;
+  const STONE_REACH = 0.15;
+
+  function genStones() {
+    const r = rng(20241031);
+    const all = [];
+    for (let i = 0; i < 1500; i++) {
+      const rad = 0.035 + 0.17 * Math.pow(r(), 2.4);
+      const n = 7 + Math.floor(r() * 4);
+      const rot = r() * 6.283;
+      const poly = [];
+      for (let k = 0; k < n; k++) {
+        const a = rot + (k / n) * 6.283;
+        const d = rad * (0.72 + 0.38 * r());
+        poly.push([Math.cos(a) * d, Math.sin(a) * d * (0.78 + 0.22 * r())]);
+      }
+      all.push({ x: r() * TARMAC_TILE, z: r() * TARMAC_TILE, r: rad, tone: r(), shade: r(), poly: poly });
+    }
+    all.sort((a, b) => a.r - b.r);
+    const cells = TARMAC_TILE / STONE_CELL;
+    const grid = new Map();
+    all.filter((s) => s.r > 0.09).forEach(function (s) {
+      s.h = 0.2 * s.r;
+      const reach = s.r + STONE_REACH;
+      for (let i = Math.floor((s.x - reach) / STONE_CELL); i <= Math.floor((s.x + reach) / STONE_CELL); i++) {
+        for (let j = Math.floor((s.z - reach) / STONE_CELL); j <= Math.floor((s.z + reach) / STONE_CELL); j++) {
+          const key = (((i % cells) + cells) % cells) + ',' + (((j % cells) + cells) % cells);
+          if (!grid.has(key)) grid.set(key, []);
+          grid.get(key).push(s);
+        }
+      }
+    });
+    return { all: all, grid: grid };
+  }
+  const STONES = genStones();
+
+  /* La bille qui roule sur un gravillon est poussée vers l'extérieur de la bosse (pente de l'enveloppe du caillou). */
+  function stoneAccel(x, z, out) {
+    const T = TARMAC_TILE;
+    const tx = ((x % T) + T) % T;
+    const tz = ((z % T) + T) % T;
+    const list = STONES.grid.get(Math.floor(tx / STONE_CELL) + ',' + Math.floor(tz / STONE_CELL));
+    out.x = 0;
+    out.z = 0;
+    if (!list) return out;
+    for (let i = 0; i < list.length; i++) {
+      const s = list[i];
+      let dx = tx - s.x;
+      let dz = tz - s.z;
+      dx -= Math.round(dx / T) * T;
+      dz -= Math.round(dz / T) * T;
+      const d2 = dx * dx + dz * dz;
+      const reach = s.r + STONE_REACH;
+      if (d2 >= reach * reach || d2 < 1e-8) continue;
+      const q = 1 - d2 / (reach * reach);
+      const k = (G * 4 * s.h * q) / (reach * reach);
+      out.x += k * dx;
+      out.z += k * dz;
+    }
+    return out;
+  }
+
+  function stoneColor(s) {
+    const v = s.shade;
+    if (s.tone < 0.6) { const l = 72 + v * 42; return [l, l, l + 3]; }
+    if (s.tone < 0.86) { const l = 46 + v * 24; return [l, l, l + 2]; }
+    if (s.tone < 0.95) return [112 + v * 22, 103 + v * 20, 90 + v * 16];
+    const l = 145 + v * 30; return [l, l - 2, l - 5];
+  }
+
+  function drawStones(g, size, fill) {
+    const sc = size / TARMAC_TILE;
+    STONES.all.forEach(function (s) {
+      for (let ox = -1; ox <= 1; ox++) {
+        for (let oz = -1; oz <= 1; oz++) {
+          const cx = (s.x + ox * TARMAC_TILE) * sc;
+          const cz = (s.z + oz * TARMAC_TILE) * sc;
+          const rr = s.r * sc * 1.2;
+          if (cx < -rr || cz < -rr || cx > size + rr || cz > size + rr) continue;
+          g.beginPath();
+          s.poly.forEach(function (pt, k) {
+            if (k === 0) g.moveTo(cx + pt[0] * sc, cz + pt[1] * sc); else g.lineTo(cx + pt[0] * sc, cz + pt[1] * sc);
+          });
+          g.closePath();
+          fill(g, s, cx, cz, s.r * sc);
+        }
+      }
+    });
+  }
+
+  function tarmacMaps() {
+    const n = 2048;
+    const c = document.createElement('canvas');
+    c.width = c.height = n;
+    const g = c.getContext('2d');
+    const r = rng(77);
+    g.fillStyle = '#17181a';
+    g.fillRect(0, 0, n, n);
+    for (let i = 0; i < 45000; i++) {
+      const l = 40 + Math.floor(r() * 70);
+      g.fillStyle = 'rgba(' + l + ',' + l + ',' + (l + 3) + ',0.85)';
+      const s = 1 + r() * 2.2;
+      g.fillRect(r() * n, r() * n, s, s);
+    }
+    drawStones(g, n, function (gg, s, cx, cz, rad) {
+      const col = stoneColor(s);
+      const gr = gg.createLinearGradient(cx - rad, cz - rad, cx + rad, cz + rad);
+      gr.addColorStop(0, 'rgb(' + Math.min(255, col[0] * 1.1 | 0) + ',' + Math.min(255, col[1] * 1.1 | 0) + ',' + Math.min(255, col[2] * 1.1 | 0) + ')');
+      gr.addColorStop(1, 'rgb(' + (col[0] * 0.78 | 0) + ',' + (col[1] * 0.78 | 0) + ',' + (col[2] * 0.78 | 0) + ')');
+      gg.fillStyle = gr;
+      gg.fill();
+      gg.lineWidth = Math.max(1, rad * 0.06);
+      gg.strokeStyle = 'rgba(10,10,11,0.45)';
+      gg.stroke();
+    });
+    /* Poussière et gravillons fins par-dessus : les cailloux sont à moitié noyés, l'ensemble paraît plus uniforme. */
+    g.fillStyle = 'rgba(40,41,43,0.22)';
+    g.fillRect(0, 0, n, n);
+    for (let i = 0; i < 60000; i++) {
+      const l = 35 + Math.floor(r() * 90);
+      g.fillStyle = 'rgba(' + l + ',' + l + ',' + (l + 2) + ',' + (0.25 + r() * 0.5).toFixed(2) + ')';
+      const s = 0.8 + r() * 1.8;
+      g.fillRect(r() * n, r() * n, s, s);
+    }
+    for (let i = 0; i < 3; i++) {
+      const cx = r() * n;
+      const cz = r() * n;
+      const gr = g.createRadialGradient(cx, cz, 0, cx, cz, 120 + r() * 200);
+      gr.addColorStop(0, 'rgba(0,0,0,0.28)');
+      gr.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = gr;
+      g.fillRect(0, 0, n, n);
+    }
+    g.strokeStyle = 'rgba(6,6,7,0.85)';
+    for (let k = 0; k < 2; k++) {
+      let x = r() * n;
+      let z = r() * n;
+      let a = r() * 6.283;
+      g.lineWidth = 2 + r() * 2;
+      g.beginPath();
+      g.moveTo(x, z);
+      for (let i = 0; i < 70; i++) {
+        a += (r() - 0.5) * 0.9;
+        x += Math.cos(a) * 12;
+        z += Math.sin(a) * 12;
+        g.lineTo(x, z);
+      }
+      g.stroke();
+    }
+    const map = makeTexture(c);
+    const b = document.createElement('canvas');
+    b.width = b.height = 1024;
+    const bg = b.getContext('2d');
+    bg.fillStyle = 'rgb(60,60,60)';
+    bg.fillRect(0, 0, 1024, 1024);
+    drawStones(bg, 1024, function (gg, s, cx, cz, rad) {
+      const top = Math.min(255, 110 + s.r * 900) | 0;
+      const gr = gg.createRadialGradient(cx, cz, 0, cx, cz, rad);
+      gr.addColorStop(0, 'rgb(' + top + ',' + top + ',' + top + ')');
+      gr.addColorStop(1, 'rgb(85,85,85)');
+      gg.fillStyle = gr;
+      gg.fill();
+    });
+    const bump = new THREE.CanvasTexture(b);
+    [map, bump].forEach(function (t) {
+      t.wrapS = t.wrapT = THREE.RepeatWrapping;
+      t.repeat.set(1 / TARMAC_TILE, 1 / TARMAC_TILE);
+      t.anisotropy = 8;
+    });
+    return { map: map, bump: bump };
+  }
+
+  /* Fond des cases : fonte rouillée et sale (sable, poussière, rouille au fond des creux). */
+  function coverFloorMap() {
     const n = 1024;
     const c = document.createElement('canvas');
     c.width = c.height = n;
     const g = c.getContext('2d');
-    g.fillStyle = '#41464c';
+    const r = rng(91);
+    g.fillStyle = '#1f1e1d';
     g.fillRect(0, 0, n, n);
-    for (let i = 0; i < 30000; i++) {
-      const v = 60 + Math.floor(Math.random() * 70);
-      g.fillStyle = 'rgba(' + v + ',' + v + ',' + (v + 4) + ',0.55)';
-      const s = 0.8 + Math.random() * 2.2;
-      g.fillRect(Math.random() * n, Math.random() * n, s, s);
+    for (let i = 0; i < 26; i++) {
+      const cx = r() * n;
+      const cz = r() * n;
+      const gr = g.createRadialGradient(cx, cz, 0, cx, cz, 40 + r() * 140);
+      gr.addColorStop(0, 'rgba(' + (80 + r() * 25 | 0) + ',' + (45 + r() * 12 | 0) + ',24,0.3)');
+      gr.addColorStop(1, 'rgba(90,45,20,0)');
+      g.fillStyle = gr;
+      g.fillRect(0, 0, n, n);
     }
-    for (let i = 0; i < 900; i++) {
-      const v = 120 + Math.floor(Math.random() * 90);
-      g.fillStyle = 'rgb(' + v + ',' + v + ',' + (v - 6) + ')';
+    for (let i = 0; i < 16000; i++) {
+      const sand = r() < 0.5;
+      const l = sand ? 110 + r() * 50 : 40 + r() * 40;
+      g.fillStyle = sand ? 'rgba(' + (l | 0) + ',' + (l * 0.9 | 0) + ',' + (l * 0.75 | 0) + ',0.7)' : 'rgba(' + (l | 0) + ',' + (l | 0) + ',' + (l | 0) + ',0.7)';
       g.beginPath();
-      g.arc(Math.random() * n, Math.random() * n, 1.5 + Math.random() * 3.2, 0, Math.PI * 2);
+      g.arc(r() * n, r() * n, 0.5 + r() * 1.1, 0, 6.283);
       g.fill();
     }
     return makeTexture(c);
   }
 
-  function plateFloorTexture() {
-    const n = 512;
+  /* Cartouche central en fonte : lettres en relief polies par le passage. */
+  function coverLabelMap() {
+    const w = 1024;
+    const h = Math.round((w * COVER.labelD) / COVER.labelW);
     const c = document.createElement('canvas');
-    c.width = c.height = n;
+    c.width = w;
+    c.height = h;
     const g = c.getContext('2d');
-    g.fillStyle = '#26292d';
-    g.fillRect(0, 0, n, n);
-    for (let i = 0; i < 6000; i++) {
-      g.fillStyle = Math.random() < 0.2 ? 'rgba(120,70,40,0.35)' : 'rgba(80,86,92,0.4)';
-      const s = 1 + Math.random() * 2.5;
-      g.fillRect(Math.random() * n, Math.random() * n, s, s);
+    g.fillStyle = '#34312e';
+    g.fillRect(0, 0, w, h);
+    const r = rng(5);
+    for (let i = 0; i < 4000; i++) {
+      g.fillStyle = r() < 0.4 ? 'rgba(110,60,30,0.35)' : 'rgba(20,20,20,0.35)';
+      g.fillRect(r() * w, r() * h, 2, 2);
     }
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.font = '700 ' + Math.round(h * 0.34) + 'px Figtree, Arial, sans-serif';
+    g.fillStyle = '#1a1816';
+    g.fillText('ASSAINISSEMENT', w / 2 + 3, h * 0.42 + 3);
+    g.fillStyle = '#a7a39c';
+    g.fillText('ASSAINISSEMENT', w / 2, h * 0.42);
+    g.font = '700 ' + Math.round(h * 0.16) + 'px Figtree, Arial, sans-serif';
+    g.fillStyle = '#8e8a83';
+    g.fillText('D 400   EN 124', w / 2, h * 0.8);
     return makeTexture(c);
   }
 
-  const groundTextures = { tarmac: tarmacTexture(), plate: plateFloorTexture() };
-  const groundMat = new THREE.MeshStandardMaterial({ map: groundTextures.tarmac, roughness: 0.95, metalness: 0 });
-  const groundMesh = new THREE.Mesh(new THREE.PlaneGeometry(HALF * 2, HALF * 2), groundMat);
-  groundMesh.rotation.x = -Math.PI / 2;
-  groundMesh.receiveShadow = true;
-  scene.add(groundMesh);
+  const tarmacTex = tarmacMaps();
+  const tarmacMat = new THREE.MeshStandardMaterial({ map: tarmacTex.map, bumpMap: tarmacTex.bump, bumpScale: 0.9, roughness: 0.9, metalness: 0 });
 
-  const curbMat = new THREE.MeshStandardMaterial({ color: 0xaeb4ba, roughness: 0.9 });
-  const ridgeMat = new THREE.MeshStandardMaterial({ color: 0x7a8088, roughness: 0.45, metalness: 0.35 });
-  const ridgeGroup = new THREE.Group();
-  ridgeGroup.visible = false;
-  scene.add(ridgeGroup);
+  function groundShape(hole) {
+    const s = new THREE.Shape();
+    s.moveTo(-40, -40); s.lineTo(40, -40); s.lineTo(40, 40); s.lineTo(-40, 40); s.lineTo(-40, -40);
+    if (hole) {
+      const hp = new THREE.Path();
+      hp.absarc(0, 0, hole, 0, Math.PI * 2, true);
+      s.holes.push(hp);
+    }
+    const m = new THREE.Mesh(new THREE.ShapeGeometry(s, 96), tarmacMat);
+    m.rotation.x = -Math.PI / 2;
+    m.receiveShadow = true;
+    scene.add(m);
+    return m;
+  }
+  const tarmacFull = groundShape(0);
+  const tarmacAround = groundShape(COVER.r + COVER.rimW - 0.05);
+  tarmacAround.visible = false;
+
+  const curbTex = (function () {
+    const c = document.createElement('canvas');
+    c.width = c.height = 256;
+    const g = c.getContext('2d');
+    const r = rng(13);
+    g.fillStyle = '#b9bcbf';
+    g.fillRect(0, 0, 256, 256);
+    for (let i = 0; i < 5000; i++) {
+      const l = 140 + r() * 80;
+      g.fillStyle = 'rgba(' + (l | 0) + ',' + (l | 0) + ',' + (l - 4 | 0) + ',0.6)';
+      g.fillRect(r() * 256, r() * 256, 1 + r() * 2, 1 + r() * 2);
+    }
+    for (let i = 0; i < 300; i++) {
+      g.fillStyle = 'rgba(70,70,70,0.6)';
+      g.beginPath(); g.arc(r() * 256, r() * 256, 0.6 + r() * 1.4, 0, 6.283); g.fill();
+    }
+    const t = makeTexture(c);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.repeat.set(4, 1);
+    return t;
+  })();
+  const curbMat = new THREE.MeshStandardMaterial({ map: curbTex, roughness: 0.9 });
+  /* Fonte : flancs sombres et rugueux, dessus poli par le passage. */
+  const ironMat = new THREE.MeshStandardMaterial({ color: 0x2b2c2e, roughness: 0.62, metalness: 0.5 });
+  const ironTopMat = new THREE.MeshStandardMaterial({ color: 0x46494c, roughness: 0.5, metalness: 0.45, envMapIntensity: 0.35 });
+  const ironFaces = [ironMat, ironMat, ironTopMat, ironMat, ironMat, ironMat];
+  const coverGroup = new THREE.Group();
+  const tarmacGroup = new THREE.Group();
+  scene.add(coverGroup);
+  scene.add(tarmacGroup);
+  coverGroup.visible = false;
 
   /* ================= Physique ================= */
   const world = new CANNON.World();
-  world.gravity.set(0, -30, 0);
+  world.gravity.set(0, -G, 0);
   world.broadphase = new CANNON.NaiveBroadphase();
   world.solver.iterations = 14;
 
@@ -457,39 +695,89 @@
   groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
   world.addBody(groundBody);
 
-  function addBox(x, y, z, w, h, d, material, mesh) {
+  function addBox(x, y, z, w, h, d, material, mesh, rotY) {
     const b = new CANNON.Body({ mass: 0, material: material });
     b.addShape(new CANNON.Box(new CANNON.Vec3(w / 2, h / 2, d / 2)));
     b.position.set(x, y, z);
+    if (rotY) b.quaternion.setFromEuler(0, rotY, 0);
     world.addBody(b);
-    mesh.position.set(x, y, z);
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
+    if (mesh) {
+      mesh.position.set(x, y, z);
+      if (rotY) mesh.rotation.y = rotY;
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+    }
+    b.restY = y;
     return b;
   }
 
-  /* Murs : ils descendent sous le fond de la plaque pour qu'aucune bille ne passe dessous. */
+  /* Goudron : bordures de trottoir en béton (elles descendent sous le sol pour qu'aucune bille ne passe dessous). */
+  const tarmacBodies = [];
   const edge = HALF + WALL_T / 2;
   const longSide = HALF * 2 + WALL_T * 2;
   [[0, -edge, longSide, WALL_T], [0, edge, longSide, WALL_T], [-edge, 0, WALL_T, HALF * 2], [edge, 0, WALL_T, HALF * 2]].forEach(function (w) {
     const m = new THREE.Mesh(new THREE.BoxGeometry(w[2], WALL_H + 0.5, w[3]), curbMat);
-    scene.add(m);
-    addBox(w[0], WALL_H / 2 - 0.25, w[1], w[2], WALL_H + 0.5, w[3], mWall, m);
+    tarmacGroup.add(m);
+    tarmacBodies.push(addBox(w[0], WALL_H / 2 - 0.25, w[1], w[2], WALL_H + 0.5, w[3], mWall, m));
   });
 
-  /* Lignes en relief de la plaque : de vraies marches à angle droit. */
-  const ridgeBodies = [];
-  for (let k = 0; k <= HALF * 2 / PLATE.cell; k++) {
-    const pos = -HALF + k * PLATE.cell;
-    const specs = [[pos, 0, PLATE.ridge, HALF * 2], [0, pos, HALF * 2, PLATE.ridge]];
-    specs.forEach(function (s) {
-      const m = new THREE.Mesh(new THREE.BoxGeometry(s[2], PLATE.depth, s[3]), ridgeMat);
-      ridgeGroup.add(m);
-      const b = addBox(s[0], -PLATE.depth / 2, s[1], s[2], PLATE.depth, s[3], mGround, m);
-      b.restY = -PLATE.depth / 2;
-      ridgeBodies.push(b);
-    });
-  }
+  /* Plaque : fond des cases, quadrillage en relief coupé par le cercle et le cartouche, cadre rond. */
+  const coverBodies = [];
+  const insideLabel = (x, z) => Math.abs(x) < COVER.labelW / 2 && Math.abs(z) < COVER.labelD / 2;
+  (function buildCover() {
+    const floor = new THREE.Mesh(new THREE.CircleGeometry(COVER.r + 0.05, 96), new THREE.MeshStandardMaterial({ map: coverFloorMap(), roughness: 0.85, metalness: 0.3 }));
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = -COVER.depth + 0.001;
+    floor.receiveShadow = true;
+    coverGroup.add(floor);
+    const H = COVER.depth;
+    function ridge(x0, x1, z0, z1) {
+      const w = Math.max(x1 - x0, COVER.ridge);
+      const d = Math.max(z1 - z0, COVER.ridge);
+      if (w < 0.05 || d < 0.05) return;
+      const m = new THREE.Mesh(new THREE.BoxGeometry(w, H, d), ironFaces);
+      coverGroup.add(m);
+      coverBodies.push(addBox((x0 + x1) / 2, -H / 2, (z0 + z1) / 2, w, H, d, mGround, m));
+    }
+    const n = Math.floor(COVER.r / COVER.cell);
+    for (let k = -n; k <= n; k++) {
+      const c = k * COVER.cell;
+      const L = Math.sqrt(Math.max(0, COVER.r * COVER.r - c * c));
+      if (L < 0.3) continue;
+      if (Math.abs(c) < COVER.labelW / 2 + COVER.ridge) {
+        ridge(c - COVER.ridge / 2, c + COVER.ridge / 2, -L, -COVER.labelD / 2);
+        ridge(c - COVER.ridge / 2, c + COVER.ridge / 2, COVER.labelD / 2, L);
+      } else {
+        ridge(c - COVER.ridge / 2, c + COVER.ridge / 2, -L, L);
+      }
+      if (Math.abs(c) < COVER.labelD / 2 + COVER.ridge) {
+        ridge(-L, -COVER.labelW / 2, c - COVER.ridge / 2, c + COVER.ridge / 2);
+        ridge(COVER.labelW / 2, L, c - COVER.ridge / 2, c + COVER.ridge / 2);
+      } else {
+        ridge(-L, L, c - COVER.ridge / 2, c + COVER.ridge / 2);
+      }
+    }
+    const labelMats = [ironMat, ironMat, new THREE.MeshStandardMaterial({ map: coverLabelMap(), roughness: 0.45, metalness: 0.55 }), ironMat, ironMat, ironMat];
+    const label = new THREE.Mesh(new THREE.BoxGeometry(COVER.labelW, H, COVER.labelD), labelMats);
+    coverGroup.add(label);
+    coverBodies.push(addBox(0, -H / 2, 0, COVER.labelW, H, COVER.labelD, mGround, label));
+    const ri = COVER.r;
+    const ro = COVER.r + COVER.rimW;
+    const top = COVER.rimH;
+    const rim = new THREE.Mesh(new THREE.LatheGeometry([
+      new THREE.Vector2(ri, -H), new THREE.Vector2(ri, top - 0.08), new THREE.Vector2(ri + 0.08, top),
+      new THREE.Vector2(ro - 0.08, top), new THREE.Vector2(ro, top - 0.08), new THREE.Vector2(ro, -0.02)
+    ], 128), ironTopMat);
+    rim.castShadow = true;
+    rim.receiveShadow = true;
+    coverGroup.add(rim);
+    const segs = 48;
+    const segLen = (2 * Math.PI * (ri + 0.3)) / segs + 0.08;
+    for (let i = 0; i < segs; i++) {
+      const a = (i / segs) * Math.PI * 2;
+      coverBodies.push(addBox(Math.cos(a) * (ri + 0.3), (top - H - 0.5) / 2, Math.sin(a) * (ri + 0.3), 0.6, top + H + 0.5, segLen, mWall, null, -a));
+    }
+  })();
 
   /* ================= Billes en 3D ================= */
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -1015,7 +1303,7 @@
   });
 
   let terrain = 'tarmac';
-  const groundY = () => (terrain === 'plate' ? -PLATE.depth : 0);
+  const groundY = () => (terrain === 'plate' ? -COVER.depth : 0);
 
   function setTerrain(name) {
     terrain = name;
@@ -1023,39 +1311,47 @@
     const plate = name === 'plate';
     cmGround.friction = t.friction;
     marbles.forEach(function (m) {
-      m.body.linearDamping = t.damp;
-      m.body.angularDamping = t.damp;
+      m.body.linearDamping = 0.01;
+      m.body.angularDamping = 0.01;
     });
     groundBody.position.y = groundY();
-    groundMesh.position.y = groundY() + 0.001;
-    groundMat.map = groundTextures[name];
-    groundMat.needsUpdate = true;
-    ridgeGroup.visible = plate;
-    ridgeBodies.forEach(function (b) {
-      b.position.y = plate ? b.restY : -50;
-      b.aabbNeedsUpdate = true;
-    });
+    tarmacFull.visible = !plate;
+    tarmacAround.visible = plate;
+    coverGroup.visible = plate;
+    tarmacGroup.visible = !plate;
+    coverBodies.forEach(function (b) { b.position.y = plate ? b.restY : -50; b.aabbNeedsUpdate = true; });
+    tarmacBodies.forEach(function (b) { b.position.y = plate ? -50 : b.restY; b.aabbNeedsUpdate = true; });
     document.querySelectorAll('[data-terrain]').forEach(function (b) {
       b.setAttribute('aria-pressed', b.dataset.terrain === name ? 'true' : 'false');
     });
   }
 
-  function snapToCell(v) {
-    return (Math.floor((v + HALF) / PLATE.cell) + 0.5) * PLATE.cell - HALF;
-  }
+  const snapToCell = (v) => (Math.floor(v / COVER.cell) + 0.5) * COVER.cell;
 
   function randomSpots() {
-    const spots = [
-      { x: -(2 + Math.random() * 2), z: (Math.random() * 2 - 1) * 4 },
-      { x: 2 + Math.random() * 2, z: (Math.random() * 2 - 1) * 4 }
-    ];
-    if (terrain === 'plate') spots.forEach(function (s) { s.x = snapToCell(s.x); s.z = snapToCell(s.z); });
-    return spots;
+    if (terrain !== 'plate') {
+      return [
+        { x: -(2 + Math.random() * 2), z: (Math.random() * 2 - 1) * 4 },
+        { x: 2 + Math.random() * 2, z: (Math.random() * 2 - 1) * 4 }
+      ];
+    }
+    /* Sur la plaque : deux cases au hasard dans le disque, assez éloignées, hors du cartouche. */
+    for (;;) {
+      const spots = [0, 1].map(function () {
+        const a = Math.random() * Math.PI * 2;
+        const d = 2 + Math.random() * (COVER.r - 3.2);
+        return { x: snapToCell(Math.cos(a) * d), z: snapToCell(Math.sin(a) * d) };
+      });
+      const gap = Math.hypot(spots[0].x - spots[1].x, spots[0].z - spots[1].z);
+      const far = gap > 3 && gap < 6.5;
+      if (far && !spots.some((s) => insideLabel(s.x, s.z) || Math.hypot(s.x, s.z) > COVER.r - 0.8)) return spots;
+    }
   }
 
   function placeAt(i, spot) {
     const b = marbles[i].body;
-    b.position.set(spot.x, groundY() + R + 0.001, spot.z);
+    const y = terrain === 'plate' && insideLabel(spot.x, spot.z) ? 0 : groundY();
+    b.position.set(spot.x, y + R + 0.001, spot.z);
     b.velocity.set(0, 0, 0);
     b.angularVelocity.set(0, 0, 0);
     b.quaternion.set(0, 0, 0, 1);
@@ -1067,17 +1363,29 @@
     marbles[i].mesh.visible = false;
   }
 
+  /* Résistance au roulement : la bille perd de la vitesse régulièrement puis s'arrête net (pas de longue traîne).
+     Sur le goudron, les gros gravillons font dévier la bille, toujours au même endroit, plus un léger aléa de sable. */
+  const stoneOut = { x: 0, z: 0 };
   function terrainEffects(m) {
     const v = m.body.velocity;
+    const w = m.body.angularVelocity;
     const speed = Math.sqrt(v.x * v.x + v.z * v.z);
     if (speed < 0.15 && Math.abs(v.y) < 0.3) {
       v.set(0, v.y, 0);
-      m.body.angularVelocity.set(0, 0, 0);
+      w.set(0, 0, 0);
       return;
     }
     const t = TERRAINS[terrain];
-    if (t.jitter) {
-      const k = Math.min(speed / 6, 1) * t.jitter;
+    if (Math.abs(v.y) < 1.5 && speed > 1e-6) {
+      const f = Math.max(0, speed - t.roll * STEP) / speed;
+      v.x *= f; v.z *= f;
+      w.x *= f; w.y *= f; w.z *= f;
+    }
+    if (terrain === 'tarmac') {
+      stoneAccel(m.body.position.x, m.body.position.z, stoneOut);
+      v.x += stoneOut.x * STEP;
+      v.z += stoneOut.z * STEP;
+      const k = Math.min(speed / 6, 1) * t.sand;
       v.x += (Math.random() - 0.5) * k;
       v.z += (Math.random() - 0.5) * k;
     }
@@ -1211,8 +1519,8 @@
       if (terrain === 'plate') {
         v = V_MAX * (0.65 + Math.random() * 0.35);
       } else {
-        const k = -Math.log(1 - TERRAINS[terrain].damp);
-        v = Math.min(dist * k * (1.05 + Math.random() * 0.35) + 0.4, V_MAX);
+        /* Distance d'arrêt avec décélération constante : d = v² / 2a, donc v = racine(2·a·d). */
+        v = Math.min(Math.sqrt(2 * TERRAINS[terrain].roll * dist) * (1.05 + Math.random() * 0.25) + 0.3, V_MAX);
       }
       shoot(1, { x: Math.cos(angle), z: Math.sin(angle) }, v / V_MAX);
     }, 900);
