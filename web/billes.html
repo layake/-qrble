@@ -611,6 +611,43 @@
     'vec4 figureCore(float d, vec3 q) {',
     '  float shade = 0.75 + 0.35 * clamp(q.y * 2.0 + 0.4, 0.0, 1.0);',
     '  return vec4(vec3(0.92, 0.9, 0.86) * shade, smoothstep(0.08, -0.02, d)); }',
+    'vec4 bubblesAt(vec3 q, float sc, float prob) {',
+    '  vec3 g = q * sc + uSeed * 53.0; vec3 i = floor(g); vec3 f = fract(g) - 0.5;',
+    '  vec3 off = vec3(hash3(i + 2.1), hash3(i + 4.2), hash3(i + 6.3)) - 0.5;',
+    '  float rad = 0.12 + 0.18 * hash3(i + 8.4); float d = length(f - off * 0.4);',
+    '  float ring = smoothstep(rad, rad * 0.7, d) - smoothstep(rad * 0.7, rad * 0.3, d);',
+    '  return vec4(vec3(1.3), ring * step(1.0 - prob, hash3(i + 9.5)) * 0.8); }',
+    /* Sulfure, d'après des presse-papiers en verre : 0 vague qui s'enroule avec écume et paillettes d'or,
+       1 fond sombre pailleté avec une sphère qui flotte, 2 fond coloré à spirale blanche et bulles, 3 figurine (vrai sulfure). */
+    'vec4 paperweight(vec3 q) {',
+    '  float depth = smoothstep(0.2, 0.1, abs(q.z));',
+    '  if (uVariant < 0.5) {',
+    '    vec2 w = q.xy - vec2(0.08, -0.05);',
+    '    float ang = mod(atan(w.y, w.x) + 2.4 + uSeed, 6.28318);',
+    '    float rr = length(w); float R = 0.55 - 0.06 * ang; float th = 0.05 + 0.09 * (1.0 - ang / 4.6);',
+    '    float curl = smoothstep(th, th * 0.5, abs(rr - R)) * step(ang, 4.6) * depth;',
+    '    float sea = smoothstep(0.03, -0.03, q.y + 0.55 - 0.06 * sin(q.x * 4.0 + uSeed * 6.0)) * smoothstep(0.45, 0.3, abs(q.z));',
+    '    float body = max(curl, sea);',
+    '    vec4 o = vec4(mix(uC1, uC1 * 0.45, noise3(q * 9.0 + uSeed * 5.0)), body);',
+    '    vec4 sp = sparkle(q, 30.0, 0.12); if (sp.a * body > 0.1) o.rgb = uC3 * 1.4;',
+    '    float crest = smoothstep(0.25, 0.0, abs(rr - R - th - 0.05)) * step(ang, 2.2) * depth;',
+    '    vec4 foam = bubblesAt(q, 22.0, 0.5); foam.a *= crest * depth;',
+    '    return pick(o, foam.rgb, foam.a); }',
+    '  if (uVariant < 1.5) {',
+    '    float base = smoothstep(0.03, -0.03, q.y + 0.52 - 0.04 * sin(q.x * 5.0 + uSeed * 4.0));',
+    '    vec4 o = vec4(vec3(0.02, 0.015, 0.02) + uC3 * 0.06 * noise3(vec3(q.x * 3.0, q.y * 30.0, q.z * 3.0)), base);',
+    '    vec4 sp = sparkle(q, 36.0, 0.18); if (sp.a * base > 0.1) o.rgb = uC3 * 1.5;',
+    '    float orb = smoothstep(0.24, 0.22, length(q - vec3(0.0, 0.22, 0.0)));',
+    '    o = pick(o, mix(uC2, uC2 * 0.6, noise3(q * 6.0)), orb);',
+    '    vec4 bb = bubblesAt(q, 12.0, 0.05); return pick(o, bb.rgb, bb.a); }',
+    '  if (uVariant < 2.5) {',
+    '    float base = smoothstep(0.03, -0.03, q.y + 0.55);',
+    '    float rho = length(q.xz); float phi = atan(q.z, q.x);',
+    '    float line = smoothstep(0.08, 0.03, abs(fract(rho * 3.0 - phi / 6.28318 + uSeed) - 0.5));',
+    '    vec4 o = vec4(mix(uC1, vec3(0.95), line), base);',
+    '    vec4 bb = bubblesAt(q, 6.0, 0.12); bb.a *= step(-0.5, q.y);',
+    '    return pick(o, bb.rgb, bb.a); }',
+    '  return figureCore(figureD(q), q); }',
     /* Araignée, d'après de vraies billes (Kim'Play Spider) : anneaux autour d'un pôle, tirés en arches à pointes comme au peigne,
        lignes colorées bordées de fines lignes noires. */
     'vec4 feather(vec3 d) {',
@@ -682,7 +719,7 @@
     '  if (uType == 8) return swirlRibbons(q);',
     '  if (uType == 9) { vec4 s = sparkle(q, 16.0, 0.4); s.a *= step(length(q), 0.95); return s; }',
     '  if (uType == 10) return lutzCore(q);',
-    '  if (uType == 11) return figureCore(figureD(q), q);',
+    '  if (uType == 11) return paperweight(q);',
     '  if (uType == 18) { vec3 qa = (q - vec3(0.0, 0.0, 0.3)) / 0.62; vec3 qb = (q + vec3(0.0, 0.0, 0.3)) / 0.62; qb.x = -qb.x;',
     '    return figureCore(min(figureD(qa), figureD(qb)) * 0.62, q); }',
         '  if (uType == 16) return spiderGlass(q);',
@@ -789,6 +826,7 @@
     if (def.type === 'spider') return x < 0.7 ? 0 : 1;
     if (def.type === 'nugget') return x < 0.35 ? 0 : x < 0.75 ? 1 : 2;
     if (def.type === 'agate') return x < 0.55 ? 0 : x < 0.8 ? 1 : 2;
+    if (def.type === 'sulphide') return x < 0.3 ? 0 : x < 0.55 ? 1 : x < 0.75 ? 2 : 3;
     return x < 0.7 ? 1 : 3;
   };
   const isGlass = (def) => GLASS_TYPES.includes(def.type) && !(def.type === 'swirl' && ribbonVariantOf(def) === 2) && !(def.type === 'spider' && ribbonVariantOf(def) === 0) && !(def.type === 'nugget' && ribbonVariantOf(def) !== 1);
@@ -816,11 +854,11 @@
     /* Tourbillon : verre clair, turquoise, bleu ou ambre, comme sur les vraies billes. */
     const swirlTint = [null, 185, 215, 40][Math.floor(rng(def.seed + 3)() * 4)];
     const tint = def.type === 'swirl' ? linColor(swirlTint || 0, 0.55, 0.6) : linColor(h, 0.7, 0.45);
-    const swirlVariant = ['swirl', 'tornado', 'spider', 'nugget', 'agate'].includes(def.type) ? ribbonVariantOf(def) : 1;
+    const swirlVariant = ['swirl', 'tornado', 'spider', 'nugget', 'agate', 'sulphide'].includes(def.type) ? ribbonVariantOf(def) : 1;
     const strength = def.type === 'swirl' ? (swirlVariant === 0 && swirlTint ? 0.9 : undefined) : { mica: 2.2, clear: 1.1, nugget: 0.9 }[def.type];
     const absorb = strength
       ? new THREE.Vector3(1 - tint.r, 1 - tint.g, 1 - tint.b).multiplyScalar(strength)
-      : def.type === 'cateye' ? new THREE.Vector3(0.15, 0.06, 0.4) : def.type === 'lutz' ? new THREE.Vector3(0.08, 0.04, 0.06) : new THREE.Vector3(0.35, 0.12, 0.2);
+      : def.type === 'cateye' ? new THREE.Vector3(0.15, 0.06, 0.4) : def.type === 'lutz' || def.type === 'sulphide' ? new THREE.Vector3(0.08, 0.04, 0.06) : new THREE.Vector3(0.35, 0.12, 0.2);
     /* Œil de chat : trio classique jaune, rouge-orange, bleu, ou une seule couleur avec des nuances. */
     const catPal = def.type === 'cateye'
       ? (rng(def.seed + 17)() < 0.6
@@ -845,7 +883,10 @@
                 const i = Math.floor(ar() * pal.length);
                 return [pal[i], pal[(i + 1 + Math.floor(ar() * (pal.length - 1))) % pal.length], new THREE.Color(1, 1, 1)];
               })()
-              : null;
+              : def.type === 'sulphide'
+                ? [[linColor(195, 0.8, 0.45), linColor(10, 0.9, 0.45), linColor(150, 0.6, 0.4), linColor(275, 0.6, 0.45)][Math.floor(rng(def.seed + 49)() * 4)],
+                  linColor(230, 0.2, 0.6), new THREE.Color(1.0, 0.62, 0.22)]
+                : null;
     const uniforms = {
       uType: { value: TYPE_ID[def.type] },
       uVariant: { value: swirlVariant },
