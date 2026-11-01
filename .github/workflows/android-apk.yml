@@ -1,5 +1,6 @@
 # Fabrique l'APK Android du jeu Billes à chaque mise à jour de la page du jeu.
-# L'APK se télécharge dans l'onglet Actions de GitHub (section « Artifacts » du run).
+# L'APK est publié dans la Release « apk-latest » : lien direct, sans zip et sans compte GitHub :
+# https://github.com/layake/-qrble/releases/download/apk-latest/Billes.apk
 name: APK Android
 
 on:
@@ -9,6 +10,9 @@ on:
       - 'android-app/**'
       - '.github/workflows/android-apk.yml'
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   apk:
@@ -46,8 +50,23 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
 
+      - name: Renommer l'APK
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk Billes.apk
+
       - uses: actions/upload-artifact@v4
         with:
           name: billes-apk
-          path: android-app/android/app/build/outputs/apk/debug/app-debug.apk
+          path: android-app/Billes.apk
           retention-days: 30
+
+      - name: Publier dans la Release apk-latest
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-latest
+          name: Billes (dernière version)
+          body: |
+            APK de test du jeu Billes, refait à chaque mise à jour du jeu.
+            Sur Android : télécharge Billes.apk, ouvre-le et autorise l'installation.
+            Version du ${{ github.sha }}.
+          prerelease: true
+          files: android-app/Billes.apk
