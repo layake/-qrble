@@ -2,148 +2,335 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=Figtree:wght@400;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=Figtree:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-  /* Mise en page : titre et onglets (Jouer, Sac, Boîte), terrain 3D, puis réglages et salle en ligne. */
+  /* Mise en page : écran d'accueil avec ta bille en 3D, barre de navigation en bas (Sac, Accueil, Machine), partie en plein écran.
+     Un seul thème sombre, celui de la maquette : bitume, craie, rouge brique et jaune ticket. */
   :root {
-    --bg: #e3e7eb;
-    --ink: #1b232b;
-    --muted: #55616d;
-    --panel: #f2f4f6;
-    --line: #c2cad2;
-    --accent: #d6402b;
-    --stage: #262c33;
-    --focus: #2e63d8;
-    --r-common: #6b7785;
-    --r-uncommon: #23864b;
-    --r-rare: #2f5fd0;
-    --r-legend: #a8740a;
+    --bg: #12161d;
+    --ink: #f2efe6;
+    --muted: #a9b0ba;
+    --panel: #1d232d;
+    --panel2: #262c37;
+    --line: #2e3542;
+    --accent: #e5553f;
+    --accent-dark: #9c3426;
+    --gold: #f0c14b;
+    --gold-dark: #a5822a;
+    --stage: #12161d;
+    --focus: #7fa2f2;
+    --r-common: #a9b0ba;
+    --r-uncommon: #6fd39a;
+    --r-rare: #8fb0ff;
+    --r-legend: #e6b445;
     --font-display: 'Bagel Fat One', 'Arial Rounded MT Bold', system-ui, sans-serif;
     --font-body: 'Figtree', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --bg: #12161b; --ink: #e6ebef; --muted: #9aa6b2; --panel: #1b2128; --line: #2c353f;
-      --stage: #1a1f25; --focus: #7fa2f2; --accent: #e5553f;
-      --r-common: #9aa6b2; --r-uncommon: #4cc47e; --r-rare: #7fa2f2; --r-legend: #e6b445;
-      color-scheme: dark;
-    }
-  }
-  :root[data-theme="dark"] {
-    --bg: #12161b; --ink: #e6ebef; --muted: #9aa6b2; --panel: #1b2128; --line: #2c353f;
-    --stage: #1a1f25; --focus: #7fa2f2; --accent: #e5553f;
-    --r-common: #9aa6b2; --r-uncommon: #4cc47e; --r-rare: #7fa2f2; --r-legend: #e6b445;
     color-scheme: dark;
   }
 
   body {
     background: var(--bg);
     color: var(--ink);
-    font: 400 16px/1.45 var(--font-body);
-    padding-block: 12px 28px;
-    padding-left: max(16px, env(safe-area-inset-left, 0px));
-    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    font: 500 16px/1.45 var(--font-body);
+    margin: 0;
+    -webkit-tap-highlight-color: transparent;
   }
-  .app { max-width: 760px; margin: 0 auto; display: grid; gap: 14px; }
-  header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; }
-  h1 { font: 400 clamp(1.8rem, 6vw, 2.4rem)/1 var(--font-display); margin: 0; letter-spacing: 0.01em; }
+  .app {
+    max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; min-height: 100vh;
+    padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+    padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px);
+  }
+  h1 { font: 400 30px/1 var(--font-display); margin: 0; letter-spacing: 0.01em; }
   h2 { font: 400 1.3rem/1.1 var(--font-display); margin: 0; }
   p { margin: 0; }
   button { font: inherit; color: inherit; }
-  button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+  button:focus-visible, summary:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+  [hidden] { display: none !important; }
+  svg { flex: none; }
 
-  .tabs, .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--panel); }
-  .tabs button, .seg button {
-    font: 600 14px/1 var(--font-body);
-    background: transparent; border: 0; padding: 11px 14px; min-height: 42px; cursor: pointer;
-    display: inline-flex; align-items: center; gap: 6px;
+  /* En-tête commun : titre de l'écran, tickets (mène à la machine), aide, son. */
+  .top { display: flex; align-items: center; gap: 8px; padding: calc(env(safe-area-inset-top, 0px) + 16px) 16px 4px; }
+  .top-title { flex: 1; min-width: 0; display: grid; gap: 2px; }
+  .top-sub { font-size: 13px; color: var(--muted); }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px; height: 44px; padding: 0 12px; border-radius: 999px; border: 0;
+    background: var(--panel); font-weight: 800; font-size: 15px; cursor: pointer; font-variant-numeric: tabular-nums;
   }
-  .tabs button + button, .seg button + button { border-left: 1px solid var(--line); }
-  .tabs button[aria-current="true"], .seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+  .icon-btn {
+    width: 44px; height: 44px; flex: none; border-radius: 12px; border: 0; background: var(--panel);
+    display: grid; place-items: center; padding: 0; cursor: pointer; font-weight: 800; font-size: 17px;
+  }
+  .view { display: grid; gap: 12px; padding: 0 16px; align-content: start; }
+  #view-play { padding: 0; }
+
+  /* Barre de navigation en bas. */
+  .nav {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; background: #0d1015; border-top: 1px solid var(--panel2);
+    padding: 8px max(12px, env(safe-area-inset-left, 0px)) calc(env(safe-area-inset-bottom, 0px) + 10px);
+  }
+  .nav-in { max-width: 560px; margin: 0 auto; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  .nav button {
+    position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 0; border: 0; border-radius: 14px;
+    background: transparent; color: var(--muted); font-weight: 700; font-size: 12px; cursor: pointer; min-height: 56px;
+  }
+  .nav button[aria-current="true"] { color: #fff; font-weight: 800; background: var(--panel); box-shadow: inset 0 3px 0 var(--accent); }
+  .nav .dot { position: absolute; top: 6px; right: calc(50% - 20px); }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); }
   .num { font-variant-numeric: tabular-nums; color: inherit; opacity: 0.75; }
 
-  [hidden] { display: none !important; }
-  .header-actions { display: flex; gap: 8px; margin-left: auto; }
-  #helpBtn { min-width: 42px; font-weight: 700; }
-  .banner-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-  .flow { padding: 4px 0; gap: 0; }
-  .step + .step { border-top: 1px solid var(--line); }
-  .step-head {
-    width: 100%; display: flex; align-items: center; gap: 12px; background: none; border: 0;
-    padding: 12px 16px; min-height: 52px; cursor: pointer; text-align: left; font: 600 15px/1.2 var(--font-body);
+  /* Accueil : ta bille en grand sur le bitume, dans un cercle tracé à la craie. */
+  .hero {
+    position: relative; height: min(440px, 58vh); min-height: 320px; overflow: hidden;
+    background:
+      radial-gradient(circle at 30% 20%, #3a3f47 0 1.5px, transparent 2.5px) 0 0 / 14px 14px,
+      radial-gradient(circle at 70% 60%, #2a2e35 0 2px, transparent 3px) 0 0 / 11px 11px,
+      radial-gradient(ellipse at 50% 55%, #2b3039, #161a20 72%);
   }
-  .step-head:disabled { opacity: 0.45; cursor: not-allowed; }
-  .step-num {
-    flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center;
-    background: var(--bg); border: 1px solid var(--line); font-weight: 700; font-variant-numeric: tabular-nums;
+  .chalk { position: absolute; left: 50%; top: 47%; width: min(320px, 82%); height: 32%; transform: translate(-50%, -50%); border: 3px dashed rgba(242, 239, 230, 0.42); border-radius: 50%; }
+  .hero-main { position: absolute; left: 50%; top: 45%; transform: translate(-50%, -55%); width: min(210px, 48vh); height: min(210px, 48vh); }
+  .hero-main img, .hero-side img { display: block; width: 100%; height: 100%; filter: drop-shadow(0 22px 18px rgba(0, 0, 0, 0.55)); }
+  .hero-main .mystery { width: 100%; height: 100%; font-size: 4rem; }
+  .hero-main.swap { animation: heroin 0.32s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
+  @keyframes heroin { from { opacity: 0; transform: translate(-50%, -55%) scale(0.8); } to { opacity: 1; transform: translate(-50%, -55%); } }
+  .hero-shadow { position: absolute; left: 50%; top: calc(45% + min(105px, 24vh) - 30px); width: 146px; height: 20px; transform: translateX(-50%); border-radius: 50%; background: radial-gradient(ellipse, rgba(0, 0, 0, 0.55), transparent 70%); }
+  .hero-side { position: absolute; top: 45%; width: 104px; height: 104px; transform: translateY(-60%); opacity: 0.55; pointer-events: none; }
+  .hero-side.left { left: -30px; }
+  .hero-side.right { right: -30px; }
+  .arrow {
+    position: absolute; top: 45%; transform: translateY(-75%); width: 44px; height: 44px; border-radius: 50%; border: 0;
+    background: rgba(18, 22, 29, 0.7); display: grid; place-items: center; padding: 0; cursor: pointer; z-index: 2;
   }
-  .step.open .step-num { background: var(--ink); color: var(--bg); border-color: var(--ink); }
-  .step.done .step-num { background: var(--accent); color: #fff; border-color: var(--accent); }
-  .step-title { flex: 1; min-width: 0; }
-  .step-sum { color: var(--muted); font-size: 0.9rem; text-align: right; overflow-wrap: anywhere; }
-  .step-body { display: none; padding: 0 16px 16px; gap: 12px; }
-  .step.open .step-body { display: grid; }
-  .step.open .step-sum { display: none; }
-  .strip { display: grid; grid-auto-flow: column; grid-auto-columns: 104px; gap: 10px; overflow-x: auto; padding: 2px 2px 8px; scroll-snap-type: x mandatory; }
-  .strip .card { scroll-snap-align: start; }
-  .terrains { display: grid; grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); gap: 10px; }
-  .terrain-card {
-    display: grid; gap: 4px; align-content: start; text-align: left; padding: 10px; cursor: pointer;
-    background: var(--bg); border: 1px solid var(--line); border-radius: 12px; min-width: 0;
+  .arrow.left { left: 12px; }
+  .arrow.right { right: 12px; }
+  .hero-label { position: absolute; left: 12px; right: 12px; bottom: 14px; display: grid; justify-items: center; gap: 6px; text-align: center; }
+  .hero-name { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px; font: 400 24px/1.1 var(--font-display); }
+  .rchip { font: 800 11px/1 var(--font-body); letter-spacing: 0.08em; text-transform: uppercase; padding: 5px 8px; border-radius: 999px; background: var(--line); color: var(--r-common); }
+  .rchip.r-uncommon { color: var(--r-uncommon); }
+  .rchip.r-rare { color: var(--r-rare); background: #1f2a44; }
+  .rchip.r-legend { color: var(--r-legend); background: #3a2f14; }
+  .hero-sub { font-size: 12px; color: var(--muted); }
+  @media (prefers-reduced-motion: reduce) { .hero-main.swap { animation: none; } }
+
+  .home-body { display: grid; gap: 12px; padding: 0 16px; }
+  .home-status:empty { display: none; }
+  .home-status { font-weight: 700; text-align: center; }
+  .free { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 18px; background: var(--panel); }
+  .free-text { display: grid; gap: 2px; flex: 1; min-width: 0; }
+  .free-text strong { font-size: 14px; font-weight: 800; }
+  .free-text span { font-size: 12px; color: var(--muted); }
+  .gold-btn {
+    height: 44px; padding: 0 16px; border-radius: 12px; border: 0; background: var(--gold); color: #1b1608;
+    font: 800 14px var(--font-body); cursor: pointer;
   }
-  .terrain-card[aria-pressed="true"] { border-color: var(--ink); box-shadow: inset 0 0 0 2px var(--ink); }
-  .terrain-card strong { font-size: 0.95rem; }
-  .terrain-card span { color: var(--muted); font-size: 0.8rem; line-height: 1.3; }
-  .tswatch { display: block; height: 34px; border-radius: 8px; margin-bottom: 4px; }
-  .t-tarmac { background: radial-gradient(circle at 20% 30%, #8a8f96 2px, transparent 3px) 0 0 / 11px 11px, radial-gradient(circle at 70% 60%, #5c6168 2px, transparent 3px) 0 0 / 9px 9px, #1d1f22; }
-  .t-plate { background: repeating-linear-gradient(90deg, #6a6e73 0 3px, transparent 3px 14px), repeating-linear-gradient(0deg, #6a6e73 0 3px, transparent 3px 14px), #2a2523; }
-  .t-terre { background: radial-gradient(circle at 50% 50%, #5e4430 0 7px, transparent 9px), radial-gradient(circle at 25% 35%, #b49a7a 1.5px, transparent 2.5px) 0 0 / 10px 10px, #8a6a4c; }
-  .online { display: grid; gap: 8px; border-top: 1px dashed var(--line); padding-top: 12px; }
+  .gold-btn:disabled { background: var(--panel2); color: var(--muted); cursor: not-allowed; }
+  .risk { font-size: 13px; color: var(--muted); text-align: center; text-wrap: balance; }
+  .risk b { color: var(--ink); }
+  .play-btn {
+    height: 68px; border-radius: 20px; border: 0; background: var(--accent); color: #fff; cursor: pointer; margin-top: 4px;
+    display: flex; align-items: center; justify-content: center; gap: 12px;
+    box-shadow: 0 6px 0 var(--accent-dark), 0 14px 24px rgba(0, 0, 0, 0.35); transition: transform 0.08s ease, box-shadow 0.08s ease;
+  }
+  .play-btn:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 2px 0 var(--accent-dark), 0 8px 16px rgba(0, 0, 0, 0.35); }
+  .play-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .play-txt { display: grid; justify-items: center; gap: 4px; }
+  .play-main { font: 400 32px/1 var(--font-display); letter-spacing: 0.02em; }
+  .play-sub { font: 700 11px/1 var(--font-body); opacity: 0.9; }
+  .online { background: var(--panel); border-radius: 18px; padding: 0 14px; }
+  .online summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 52px; font-weight: 800; font-size: 14px; }
+  .online summary::-webkit-details-marker { display: none; }
+  .online summary::after { content: '+'; font-size: 20px; color: var(--muted); }
+  .online[open] summary::after { content: '−'; }
+  .online-body { display: grid; gap: 10px; padding-bottom: 14px; }
+
+  .primary {
+    font: 700 15px/1 var(--font-body); color: #fff; background: var(--accent);
+    border: 0; border-radius: 12px; padding: 13px 18px; min-height: 44px; cursor: pointer;
+  }
+  .primary:disabled, .ghost:disabled { opacity: 0.45; cursor: not-allowed; }
+  .ghost {
+    font: 700 14px/1 var(--font-body); background: transparent; border: 1.5px solid #3a414d;
+    border-radius: 12px; padding: 11px 14px; min-height: 44px; cursor: pointer;
+  }
+  .panel { background: var(--panel); border-radius: 18px; padding: 12px 14px; display: grid; gap: 10px; min-width: 0; }
+  .label { color: var(--ink); font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; }
+  .note { color: var(--muted); font-size: 0.92rem; max-width: 65ch; }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+
+  .peers { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .peer { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .peer img { width: 32px; height: 32px; border-radius: 50%; flex: none; }
+  .peer-name { flex: 1; min-width: 0; overflow-wrap: anywhere; font-weight: 600; }
+  .peer-state { color: var(--muted); font-size: 0.85rem; }
+  .incoming { margin: 0 16px; border: 2px solid var(--accent); border-radius: 16px; padding: 12px; display: grid; gap: 10px; background: var(--panel); }
+  .picks { display: flex; flex-wrap: wrap; gap: 8px; }
+  .picks .card { width: 104px; }
+  .stake-text { display: grid; min-width: 0; }
+
+  /* Cartes de billes (sac, album, gains). */
+  .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  .card {
+    position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 12px 6px 10px; text-align: center;
+    background: var(--panel); border: 1.5px solid var(--panel2); border-radius: 16px; cursor: pointer; min-width: 0;
+  }
+  div.card { cursor: default; }
+  .card img { filter: drop-shadow(0 8px 6px rgba(0, 0, 0, 0.5)); margin-bottom: auto; }
+  .card.r-uncommon { border-color: #2a3a33; }
+  .card.r-rare { background: #1a2030; border-color: #2c3d63; }
+  .card.r-legend { background: #211d14; border-color: #8a6a1e; }
+  .card[aria-pressed="true"] { border: 2px solid var(--accent); }
+  .card-name { font-weight: 700; font-size: 13px; line-height: 1.15; overflow-wrap: anywhere; }
+  .chip { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; }
+  .chip.r-common { color: var(--r-common); }
+  .chip.r-uncommon { color: var(--r-uncommon); }
+  .chip.r-rare { color: var(--r-rare); }
+  .chip.r-legend { color: var(--r-legend); }
+  .card .tag {
+    position: absolute; top: 8px; left: 8px; font-size: 10px; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 0.06em; background: var(--accent); color: #fff; border-radius: 6px; padding: 3px 7px;
+  }
+  .card .check {
+    position: absolute; top: 8px; right: 8px; width: 22px; height: 22px; border-radius: 50%;
+    background: var(--accent); color: #fff; font-weight: 800; font-size: 13px; display: grid; place-items: center;
+  }
+  .thumb-pending { border-radius: 50%; background: radial-gradient(circle at 35% 30%, var(--panel2), var(--bg)); }
+  .mystery { width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; font: 400 1.5rem var(--font-display); color: var(--muted); background: radial-gradient(circle at 35% 30%, var(--panel2), var(--bg)); }
+
+  .bag-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
+  .chips { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+  .chips button {
+    flex: none; font: 700 13px/1 var(--font-body); padding: 0 14px; height: 36px; border-radius: 999px;
+    border: 1.5px solid #3a414d; background: transparent; cursor: pointer;
+  }
+  .chips button[data-r="legend"] { color: var(--r-legend); }
+  .chips button[data-r="rare"] { color: var(--r-rare); }
+  .chips button[data-r="uncommon"] { color: var(--r-uncommon); }
+  .chips button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); font-weight: 800; }
+  .chips .num { margin-left: 4px; }
+  .discard-mode .card[aria-pressed="false"] { opacity: 0.75; }
+  .discard-bar {
+    position: sticky; bottom: calc(env(safe-area-inset-bottom, 0px) + 92px); z-index: 5;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px;
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  }
+  .discard-info { display: grid; gap: 2px; min-width: 0; }
+  .discard-info strong { font-variant-numeric: tabular-nums; }
+  .discard-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+  /* Album : une case par coloris, rangées par type de bille. */
+  .album-head { display: grid; gap: 8px; }
+  .progress { height: 10px; border-radius: 999px; background: var(--panel2); overflow: hidden; }
+  .progress span { display: block; height: 100%; width: 0; background: var(--accent); border-radius: 999px; transition: width 0.4s ease; }
+  .album-group { display: grid; gap: 12px; margin-top: 14px; }
+  .album-group > h3 { margin: 0; display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font: 800 13px/1.2 var(--font-body); letter-spacing: 0.08em; text-transform: uppercase; }
+  .album-type { display: grid; gap: 8px; background: var(--panel); border-radius: 16px; padding: 10px 12px 12px; }
+  .album-type h4 { margin: 0; display: flex; justify-content: space-between; gap: 8px; font: 400 1rem/1.2 var(--font-display); }
+  .album-type h4 .num { font: 700 12px var(--font-body); color: var(--muted); opacity: 1; }
+  .album-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 8px; }
+  .slot { display: grid; justify-items: center; gap: 2px; text-align: center; min-width: 0; padding: 6px 2px; border-radius: 12px; background: var(--panel2); }
+  .slot img { display: block; filter: drop-shadow(0 4px 4px rgba(0, 0, 0, 0.45)); }
+  .slot span { font-size: 11px; font-weight: 700; line-height: 1.15; overflow-wrap: anywhere; }
+  .slot.locked { background: transparent; border: 1.5px dashed var(--line); }
+  .slot.locked span { color: var(--muted); font-weight: 600; }
+  .slot.locked .mystery { width: 44px; height: 44px; font-size: 1.1rem; }
+  .slot .owned { font-size: 10px; color: var(--muted); font-weight: 600; font-variant-numeric: tabular-nums; }
+  @media (prefers-reduced-motion: reduce) { .progress span { transition: none; } }
+
+  /* Machine. */
+  .machine { position: relative; width: 100%; aspect-ratio: 1 / 1; max-height: 52vh; margin: 0 auto; border-radius: 22px; overflow: hidden; border: 1.5px solid var(--panel2); background: radial-gradient(ellipse at 50% 20%, #232a35, #151a21 75%); }
+  .machine canvas { display: block; width: 100%; height: 100%; }
+  .drop-btn {
+    height: 64px; border-radius: 20px; border: 0; background: var(--gold); color: #1b1608; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    box-shadow: 0 6px 0 var(--gold-dark), 0 14px 24px rgba(0, 0, 0, 0.35); transition: transform 0.08s ease, box-shadow 0.08s ease;
+  }
+  .drop-btn:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 2px 0 var(--gold-dark), 0 8px 16px rgba(0, 0, 0, 0.35); }
+  .drop-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .drop-main { font: 400 24px/1 var(--font-display); }
+  .drop-cost { font: 800 13px var(--font-body); padding: 5px 9px; border-radius: 999px; background: rgba(27, 22, 8, 0.15); }
+  .gains-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .gains-head span:last-child { font-size: 12px; color: var(--muted); text-align: right; }
+  .gains { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  .gains .card { background: var(--panel2); padding: 8px 4px; border-radius: 12px; }
+  .gains .card .chip { display: none; }
+  .gains .card-name { font-size: 11px; }
+  .reveal .card { animation: pop 0.55s cubic-bezier(0.2, 0.9, 0.3, 1.25) both; }
+  @keyframes pop { from { opacity: 0; transform: scale(0.6) rotate(-8deg); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .reveal .card { animation: none; } }
+  .rates-box summary { cursor: pointer; font-weight: 800; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; min-height: 28px; display: flex; align-items: center; }
+  .rates { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 6px 14px; font-size: 0.9rem; margin-top: 8px; }
+  .rates span { font-variant-numeric: tabular-nums; }
+
+  /* Tutoriel. */
   .tuto {
-    position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; background: rgba(10, 12, 15, 0.62);
+    position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; background: rgba(5, 7, 10, 0.72);
     padding-block: 16px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
   }
-  .tuto-card { width: 100%; max-width: 420px; background: var(--panel); color: var(--ink); border-radius: 16px; padding: 18px; display: grid; gap: 10px; }
+  .tuto-card { width: 100%; max-width: 420px; background: var(--panel); color: var(--ink); border-radius: 20px; padding: 18px; display: grid; gap: 10px; }
+  .tuto-card .label { color: var(--muted); }
   .tuto-art svg { display: block; width: 100%; height: auto; border-radius: 12px; }
   .tuto-dots { display: flex; gap: 6px; justify-content: center; }
   .tuto-dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
   .tuto-dots i.on { background: var(--accent); width: 20px; border-radius: 999px; }
   .tuto-actions { display: flex; justify-content: space-between; gap: 10px; }
-  .view { display: grid; gap: 14px; }
-  .stage {
-    position: relative; height: min(64vh, 112vw); min-height: 340px;
-    background: var(--stage); border-radius: 14px; overflow: hidden;
-    touch-action: none; user-select: none; -webkit-user-select: none;
-  }
-  .stage.compact { height: min(34vh, 62vw); min-height: 200px; }
-  /* Partie en cours : on quitte les menus, le terrain prend tout l'écran (comme une scène de jeu). */
+  .loading { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; color: var(--ink); font-weight: 700; background: var(--bg); }
+
+  /* Partie : le terrain prend tout l'écran, les menus disparaissent. */
+  .stage { display: none; touch-action: none; user-select: none; -webkit-user-select: none; background: var(--stage); }
   body.in-match { overflow: hidden; }
-  body.in-match header, body.in-match .flow, body.in-match #incoming { display: none !important; }
-  body.in-match .stage { position: fixed; inset: 0; height: auto; min-height: 0; border-radius: 0; z-index: 40; }
+  body.in-match .top, body.in-match .nav, body.in-match .hero, body.in-match .home-body, body.in-match #incoming { display: none !important; }
+  body.in-match .stage { display: block; position: fixed; inset: 0; z-index: 40; }
+  .stage canvas { display: block; width: 100%; height: 100%; touch-action: none; }
   .hud { position: absolute; inset: 0; pointer-events: none; }
+  .hud::before, .hud::after { content: ''; position: absolute; left: 0; right: 0; pointer-events: none; }
+  .hud::before { top: 0; height: 150px; background: linear-gradient(rgba(10, 12, 15, 0.85), rgba(10, 12, 15, 0)); }
+  .hud::after { bottom: 0; height: 190px; background: linear-gradient(rgba(10, 12, 15, 0), rgba(10, 12, 15, 0.9)); }
   .hud-top {
-    position: absolute; left: 0; right: 0; top: 0; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px;
-    padding: calc(env(safe-area-inset-top, 0px) + 10px) max(12px, env(safe-area-inset-right, 0px)) 24px max(12px, env(safe-area-inset-left, 0px));
-    background: linear-gradient(rgba(10, 12, 15, 0.7), rgba(10, 12, 15, 0));
-    color: #fff;
+    position: absolute; z-index: 1; left: 12px; right: 12px; top: calc(env(safe-area-inset-top, 0px) + 14px);
+    display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 8px; color: var(--ink);
   }
-  .hud-player { display: flex; align-items: center; gap: 8px; min-width: 0; font-weight: 700; }
-  .hud-player.opp { justify-content: flex-end; }
-  .hud-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .hud-thumb img { display: block; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.5)); }
-  .hud-stake { font: 400 1rem/1 var(--font-display); color: #e6b445; text-align: center; white-space: nowrap; }
+  .hud-player {
+    display: flex; align-items: center; gap: 8px; min-width: 0; padding: 6px 10px 6px 6px; border-radius: 16px;
+    background: rgba(29, 35, 45, 0.85); border: 2px solid transparent; transition: border-color 0.2s ease;
+  }
+  .hud-player.opp { justify-content: flex-end; padding: 6px 6px 6px 10px; }
+  .hud-player.turn { border-color: var(--accent); }
+  .hud-player img { display: block; width: 38px; height: 38px; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.5)); }
+  .hud-txt { display: grid; min-width: 0; }
+  .hud-player.opp .hud-txt { justify-items: end; }
+  .hud-txt strong { font-weight: 800; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+  .hud-txt span { font-size: 11px; color: #c9d1d9; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+  .hud-mid { display: grid; justify-items: center; gap: 2px; }
+  .hud-vs { font: 400 22px/1 var(--font-display); color: var(--gold); }
+  .hud-stake { font-size: 11px; font-weight: 800; color: var(--gold); white-space: nowrap; }
+  .hud-terrain { font-size: 10px; font-weight: 700; color: #c9d1d9; padding: 2px 6px; border-radius: 999px; background: rgba(29, 35, 45, 0.85); white-space: nowrap; }
+  .turn-pill {
+    position: absolute; z-index: 1; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 92px); transform: translateX(-50%);
+    display: flex; align-items: center; gap: 8px; padding: 7px 14px; border-radius: 999px; white-space: nowrap;
+    background: rgba(29, 35, 45, 0.92); color: #fff; font-weight: 800; font-size: 13px; box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+  }
+  .turn-pill i { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  .turn-pill.mine { background: var(--accent); }
+  .turn-pill.mine i { background: #fff; }
   .hud-quit {
-    pointer-events: auto; position: absolute; left: max(12px, env(safe-area-inset-left, 0px)); top: calc(env(safe-area-inset-top, 0px) + 62px);
-    font: 600 12px/1 var(--font-body); color: #e6ebef; background: rgba(10, 12, 15, 0.45); border: 1px solid rgba(255, 255, 255, 0.25);
-    border-radius: 999px; padding: 8px 12px; min-height: 32px; cursor: pointer;
+    position: absolute; z-index: 1; right: 12px; top: calc(env(safe-area-inset-top, 0px) + 88px); pointer-events: auto;
+    height: 44px; min-width: 44px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, 0.25); background: rgba(10, 12, 15, 0.55);
+    color: var(--ink); display: flex; align-items: center; justify-content: center; gap: 6px; padding: 0 13px; cursor: pointer; font-weight: 800; font-size: 13px;
   }
-  .hud-quit.confirm { background: #c0392b; border-color: #c0392b; }
+  .hud-quit.confirm { background: #c0392b; border-color: #c0392b; color: #fff; }
+  .hud-quit:focus-visible { outline: 3px solid var(--focus); }
+  .hud-bottom { position: absolute; z-index: 1; left: 16px; right: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 24px); display: grid; gap: 12px; }
+  .force { display: flex; align-items: center; gap: 10px; color: var(--ink); transition: opacity 0.2s ease; }
+  .force.off { opacity: 0; }
+  .force-label { font-size: 12px; font-weight: 800; letter-spacing: 0.06em; color: #c9d1d9; }
+  .force-track { flex: 1; height: 12px; border-radius: 999px; background: rgba(255, 255, 255, 0.14); overflow: hidden; }
+  .force-fill { width: 0; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #4cc47e, var(--gold) 70%, var(--accent)); background-repeat: no-repeat; }
+  .force-val { min-width: 3.2em; text-align: right; font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; }
   .stage .status {
-    position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
-    max-width: calc(100% - 24px); margin: 0; padding: 10px 16px; border-radius: 999px; text-align: center;
-    background: rgba(10, 12, 15, 0.62); color: #fff; font-size: 0.95rem; pointer-events: none;
+    margin: 0; padding: 12px 16px; border-radius: 16px; background: rgba(29, 35, 45, 0.9); color: var(--ink);
+    font-size: 14px; line-height: 1.35; text-align: center;
   }
+  .status:empty { display: none; }
   .turn-toast {
     position: absolute; left: 0; right: 0; top: 42%; text-align: center; pointer-events: none; opacity: 0;
     font: 400 clamp(2rem, 9vw, 3.2rem)/1 var(--font-display); color: #fff; text-shadow: 0 3px 12px rgba(0, 0, 0, 0.6);
@@ -151,7 +338,7 @@
   .turn-toast.show { animation: toast 1.3s ease-out both; }
   @keyframes toast { 0% { opacity: 0; transform: scale(0.7); } 18% { opacity: 1; transform: scale(1.05); } 30% { transform: scale(1); } 75% { opacity: 1; } 100% { opacity: 0; } }
   .vs-intro {
-    position: absolute; inset: 0; display: grid; place-content: center; gap: 18px; text-align: center; color: #fff;
+    position: absolute; inset: 0; z-index: 2; display: grid; place-content: center; gap: 18px; text-align: center; color: #fff;
     background: radial-gradient(circle at 50% 45%, rgba(20, 24, 30, 0.6), rgba(10, 12, 15, 0.92));
     animation: vsfade 2s ease both;
   }
@@ -160,155 +347,103 @@
   .vs-side img { filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.6)); }
   .vs-side.left { animation: vsleft 0.6s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
   .vs-side.right { animation: vsright 0.6s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
-  .vs-mark { font: 400 2.6rem/1 var(--font-display); color: #e6b445; animation: vspop 0.5s 0.35s ease-out both; }
-  .vs-info { margin: 0; color: #c9d1d9; font-size: 0.95rem; }
+  .vs-mark { font: 400 2.6rem/1 var(--font-display); color: var(--gold); animation: vspop 0.5s 0.35s ease-out both; }
+  .vs-info { margin: 0; color: #c9d1d9; font-size: 0.95rem; padding: 0 16px; }
+  .vs-terrain { font: 400 1.4rem/1 var(--font-display); color: #fff; }
   @keyframes vsleft { from { transform: translateX(-60vw); } to { transform: none; } }
   @keyframes vsright { from { transform: translateX(60vw); } to { transform: none; } }
   @keyframes vspop { from { opacity: 0; transform: scale(2.2); } to { opacity: 1; transform: none; } }
   @keyframes vsfade { 0%, 80% { opacity: 1; } 100% { opacity: 0; } }
-  body.in-match .banner { left: 50%; right: auto; bottom: auto; top: 50%; transform: translate(-50%, -50%); width: min(92vw, 380px); padding: 20px; grid-template-columns: 1fr; justify-items: center; text-align: center; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45); }
-  body.in-match .banner .thumb { grid-row: auto; }
-  body.in-match .banner .thumb img { width: 96px; height: 96px; }
-  body.in-match .banner-title { font-size: 1.6rem; }
-  body.in-match .banner-actions { justify-content: center; }
   @media (prefers-reduced-motion: reduce) { .vs-side, .vs-mark, .turn-toast.show { animation: none; } .turn-toast.show { opacity: 1; } }
-  .stage canvas { display: block; width: 100%; height: 100%; touch-action: none; }
   .banner {
-    position: absolute; left: 12px; right: 12px; bottom: 12px;
-    background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 12px;
-    padding: 14px 16px; display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; align-items: center;
+    position: absolute; z-index: 3; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(92vw, 380px);
+    background: var(--panel); color: var(--ink); border-radius: 20px; padding: 20px;
+    display: grid; gap: 8px; justify-items: center; text-align: center; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
   }
-  .banner .thumb { grid-row: span 3; }
-  .banner-title { font: 400 1.2rem/1.15 var(--font-display); text-wrap: balance; }
+  .banner .thumb img { width: 96px; height: 96px; filter: drop-shadow(0 8px 8px rgba(0, 0, 0, 0.5)); }
+  .banner-title { font: 400 1.6rem/1.15 var(--font-display); text-wrap: balance; }
   .banner-sub { color: var(--muted); font-size: 0.95rem; }
-  .banner button { justify-self: start; }
-
-  .primary {
-    font: 700 15px/1 var(--font-body); color: #fff; background: var(--accent);
-    border: 0; border-radius: 10px; padding: 13px 18px; min-height: 44px; cursor: pointer;
-  }
-  .primary:disabled, .ghost:disabled { opacity: 0.45; cursor: not-allowed; }
-  .ghost {
-    font: 600 14px/1 var(--font-body); background: transparent; border: 1px solid var(--line);
-    border-radius: 10px; padding: 11px 14px; min-height: 42px; cursor: pointer;
-  }
-
-  .status { font-weight: 600; min-height: 1.45em; }
-  .status:empty { display: none; }
-  .hud-quit:focus-visible { outline: 3px solid #7fa2f2; }
-  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; display: grid; gap: 12px; min-width: 0; }
-  .row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
-  .label { color: var(--muted); font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; min-width: 6.5em; }
-  .stake-pick {
-    display: flex; align-items: center; gap: 10px; text-align: left; cursor: pointer;
-    background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; min-height: 44px; min-width: 0;
-  }
-  .stake-text { display: grid; min-width: 0; }
-  .note { color: var(--muted); font-size: 0.92rem; max-width: 65ch; }
-
-  .peers { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-  .peer { display: flex; align-items: center; gap: 10px; min-width: 0; }
-  .peer img { width: 32px; height: 32px; border-radius: 50%; flex: none; }
-  .peer-name { flex: 1; min-width: 0; overflow-wrap: anywhere; font-weight: 600; }
-  .peer-state { color: var(--muted); font-size: 0.85rem; }
-  .incoming { border: 2px solid var(--accent); border-radius: 12px; padding: 12px; display: grid; gap: 10px; }
-  .picks { display: flex; flex-wrap: wrap; gap: 8px; }
-
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 10px; }
-  .card {
-    display: grid; justify-items: center; gap: 4px; padding: 10px 8px 9px; text-align: center;
-    background: var(--panel); border: 1px solid var(--line); border-radius: 12px; cursor: pointer; min-width: 0;
-  }
-  .card[aria-pressed="true"] { border-color: var(--ink); box-shadow: inset 0 0 0 2px var(--ink); }
-  .card.r-legend { border-color: var(--r-legend); }
-  .card-name { font-weight: 600; font-size: 0.9rem; line-height: 1.2; overflow-wrap: anywhere; }
-  .chip { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; }
-  .chip.r-common { color: var(--r-common); }
-  .chip.r-uncommon { color: var(--r-uncommon); }
-  .chip.r-rare { color: var(--r-rare); }
-  .chip.r-legend { color: var(--r-legend); }
-  .rates { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 6px 14px; font-size: 0.92rem; }
-  .rates span { font-variant-numeric: tabular-nums; }
-  .album-head { display: grid; gap: 8px; }
-  .progress { height: 10px; border-radius: 999px; background: var(--line); overflow: hidden; }
-  .progress span { display: block; height: 100%; width: 0; background: var(--accent); border-radius: 999px; transition: width 0.4s ease; }
-  .album-group { display: grid; gap: 10px; margin-top: 16px; }
-  .album-group h3 { margin: 0; display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font: 400 1.05rem/1.2 var(--font-display); }
-  .album-group h3 .num { font: 600 0.85rem var(--font-body); }
-  .card.locked { background: var(--bg); border-style: dashed; cursor: default; }
-  .card.locked .card-name { color: var(--muted); }
-  .mystery { width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; font: 400 1.5rem var(--font-display); color: var(--muted); background: radial-gradient(circle at 35% 30%, var(--panel), var(--line)); }
-  .thumb-pending { border-radius: 50%; background: radial-gradient(circle at 35% 30%, var(--panel), var(--line)); }
-  .owned { font-size: 0.75rem; color: var(--muted); font-variant-numeric: tabular-nums; }
-  @media (prefers-reduced-motion: reduce) { .progress span { transition: none; } }
-  .bag-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
-  .chips button {
-    font: 600 13px/1 var(--font-body); padding: 9px 12px; min-height: 36px; border-radius: 999px;
-    border: 1px solid var(--line); background: var(--panel); cursor: pointer;
-  }
-  .chips button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
-  .chips .num { margin-left: 4px; }
-  .loading { position: absolute; inset: 0; display: grid; place-items: center; color: #e6ebef; font-weight: 600; background: var(--stage); }
-  .card img, .stake-pick img, .banner img, .incoming img { filter: drop-shadow(0 3px 3px rgba(0, 0, 0, 0.28)); }
-  .card { position: relative; }
-  .card .tag {
-    position: absolute; top: 6px; left: 6px; font-size: 0.62rem; font-weight: 700; text-transform: uppercase;
-    letter-spacing: 0.06em; background: var(--ink); color: var(--bg); border-radius: 6px; padding: 3px 5px;
-  }
-  .card .check {
-    position: absolute; top: 6px; right: 6px; width: 22px; height: 22px; border-radius: 50%;
-    background: var(--accent); color: #fff; font-weight: 700; font-size: 13px; display: grid; place-items: center;
-  }
-  .discard-mode .card[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 2px var(--accent); }
-  .discard-mode .card[aria-pressed="false"] { opacity: 0.8; }
-  .discard-bar {
-    position: sticky; bottom: calc(env(safe-area-inset-bottom, 0px) + 8px); z-index: 5;
-    background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px;
-    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
-  }
-  .discard-info { display: grid; gap: 2px; min-width: 0; }
-  .discard-info strong { font-variant-numeric: tabular-nums; }
-  .discard-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-  .machine { position: relative; width: 100%; aspect-ratio: 1 / 1; max-height: 72vh; background: var(--stage); border-radius: 14px; overflow: hidden; }
-  .machine canvas { display: block; width: 100%; height: 100%; }
-  .reveal .card { animation: pop 0.55s cubic-bezier(0.2, 0.9, 0.3, 1.25) both; }
-  @keyframes pop { from { opacity: 0; transform: scale(0.6) rotate(-8deg); } to { opacity: 1; transform: none; } }
-  @media (prefers-reduced-motion: reduce) { .reveal .card { animation: none; } }
+  .banner-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 4px; }
 </style>
 
 <div class="app">
-  <header>
-    <h1>Billes</h1>
-    <div class="header-actions">
-      <button type="button" class="ghost" id="helpBtn" aria-label="Comment jouer">?</button>
-      <button type="button" class="ghost" id="soundBtn" aria-pressed="true">Son : oui</button>
+  <header class="top">
+    <div class="top-title">
+      <h1 id="viewTitle">Billes</h1>
+      <p class="top-sub" id="viewSub" hidden></p>
     </div>
-    <nav class="tabs" aria-label="Sections">
-      <button type="button" data-view="play" aria-current="true">Jouer</button>
-      <button type="button" data-view="bag" aria-current="false">Sac <span class="num" id="bagCount">0</span></button>
-      <button type="button" data-view="album" aria-current="false">Album <span class="num" id="albumCount"></span></button>
-      <button type="button" data-view="pack" aria-current="false">Machine <span class="num" id="ticketCount"></span> <span class="dot" id="packDot" hidden></span></button>
-    </nav>
+    <button type="button" class="pill" id="ticketPill" data-view="pack">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f0c14b" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><path d="M3 8a2 2 0 0 0 0 4v4h18v-4a2 2 0 0 0 0-4V5H3z"></path><path d="M14 5v11" stroke-dasharray="2 2"></path></svg>
+      <span id="ticketCount">0</span>
+    </button>
+    <button type="button" class="icon-btn" id="helpBtn" aria-label="Comment jouer">?</button>
+    <button type="button" class="icon-btn" id="soundBtn" aria-pressed="true" aria-label="Couper le son">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z"></path><path id="soundWaves" d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"></path><path id="soundOff" d="M16 9l6 6M22 9l-6 6" hidden></path></svg>
+    </button>
   </header>
 
   <section class="view" id="view-play">
     <div id="incoming" hidden></div>
+    <div class="hero" id="hero" aria-label="Ta bille">
+      <div class="chalk" aria-hidden="true"></div>
+      <span class="hero-side left" id="heroPrev" aria-hidden="true"></span>
+      <span class="hero-side right" id="heroNext" aria-hidden="true"></span>
+      <div class="hero-shadow" aria-hidden="true"></div>
+      <span class="hero-main" id="heroMain"></span>
+      <button type="button" class="arrow left" id="prevBtn" aria-label="Bille précédente"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></button>
+      <button type="button" class="arrow right" id="nextBtn" aria-label="Bille suivante"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg></button>
+      <div class="hero-label">
+        <div class="hero-name"><span id="heroName"></span><span class="rchip" id="heroRarity" hidden></span></div>
+        <span class="hero-sub" id="stakeNote"></span>
+      </div>
+    </div>
+    <div class="home-body">
+      <p class="home-status" id="homeStatus" aria-live="polite"></p>
+      <section class="free" aria-label="Tickets gratuits">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#f0c14b" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M3 8a2 2 0 0 0 0 4v4h18v-4a2 2 0 0 0 0-4V5H3z"></path><path d="M14 5v11" stroke-dasharray="2 2"></path></svg>
+        <div class="free-text"><strong id="freeTitle"></strong><span id="packInfo"></span></div>
+        <button type="button" class="gold-btn" id="claimBtn">Récupérer</button>
+      </section>
+      <p class="risk" id="stakeRisk"></p>
+      <button type="button" class="play-btn" id="botBtn">
+        <span class="play-txt"><span class="play-main">JOUER</span><span class="play-sub">Contre l'ordi · terrain tiré au sort</span></span>
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l6 6-6 6M13 6l6 6-6 6"></path></svg>
+      </button>
+      <button type="button" class="primary" id="toMachineBtn" hidden>Aller à la machine</button>
+      <details class="online" id="onlineBox">
+        <summary>Jouer en ligne</summary>
+        <div class="online-body">
+          <p class="note" id="lobbyNote">Connexion à la salle...</p>
+          <ul class="peers" id="peerList"></ul>
+        </div>
+      </details>
+    </div>
+
     <div class="stage" id="stage">
       <canvas id="gl" aria-label="Terrain de billes en 3D"></canvas>
-      <div class="loading" id="loading" role="status">Préparation des billes...</div>
       <div class="hud" id="hud" hidden>
         <div class="hud-top">
-          <div class="hud-player me"><span class="hud-thumb" id="hudMe"></span><span class="hud-name">Toi</span></div>
-          <div class="hud-stake" id="hudStake"></div>
-          <div class="hud-player opp"><span class="hud-name" id="hudOppName"></span><span class="hud-thumb" id="hudOpp"></span></div>
+          <div class="hud-player me" id="hudMeCard"><span id="hudMe"></span><span class="hud-txt"><strong>Toi</strong><span id="hudMeName"></span></span></div>
+          <div class="hud-mid"><span class="hud-vs">VS</span><span class="hud-stake" id="hudStake"></span><span class="hud-terrain" id="hudTerrain"></span></div>
+          <div class="hud-player opp" id="hudOppCard"><span class="hud-txt"><strong id="hudOppName"></strong><span id="hudOppMarble"></span></span><span id="hudOpp"></span></div>
         </div>
-        <button type="button" class="hud-quit" id="quitBtn">Abandonner</button>
+        <div class="turn-pill" id="turnPill"><i aria-hidden="true"></i><span id="turnText"></span></div>
+        <button type="button" class="hud-quit" id="quitBtn" aria-label="Abandonner la partie">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M5 4v17M5 4h11l-2 4 2 4H5"></path></svg>
+          <span id="quitText" hidden></span>
+        </button>
+        <div class="hud-bottom">
+          <div class="force off" id="forceRow">
+            <span class="force-label">FORCE</span>
+            <div class="force-track" role="meter" aria-label="Force du tir" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="forceMeter"><div class="force-fill" id="forceFill"></div></div>
+            <span class="force-val" id="forceVal">0 %</span>
+          </div>
+          <p class="status" id="status" aria-live="polite"></p>
+        </div>
       </div>
-      <p class="status" id="status" aria-live="polite"></p>
       <div class="turn-toast" id="turnToast" aria-hidden="true"></div>
       <div class="vs-intro" id="vsIntro" hidden>
+        <p class="vs-terrain" id="vsTerrain"></p>
         <div class="vs-row">
           <div class="vs-side left"><span id="vsMe"></span><strong>Toi</strong></div>
           <div class="vs-mark">VS</div>
@@ -326,46 +461,15 @@
         </div>
       </div>
     </div>
-    <div class="panel flow" id="flow">
-      <div class="step" data-step="1">
-        <button type="button" class="step-head" data-open="1"><span class="step-num">1</span><span class="step-title">Ta bille</span><span class="step-sum" id="sum1"></span></button>
-        <div class="step-body">
-          <div class="strip" id="stakeStrip"></div>
-          <p class="note" id="stakeNote"></p>
-          <button type="button" class="ghost" id="toMachineBtn" hidden>Aller à la machine</button>
-        </div>
-      </div>
-      <div class="step" data-step="2">
-        <button type="button" class="step-head" data-open="2"><span class="step-num">2</span><span class="step-title">Le terrain</span><span class="step-sum" id="sum2"></span></button>
-        <div class="step-body">
-          <div class="terrains" role="group" aria-label="Terrain">
-            <button type="button" class="terrain-card" data-terrain="tarmac" aria-pressed="true"><i class="tswatch t-tarmac"></i><strong>Goudron</strong><span>Les gravillons dévient la bille.</span></button>
-            <button type="button" class="terrain-card" data-terrain="plate" aria-pressed="false"><i class="tswatch t-plate"></i><strong>Plaque d'égout</strong><span>Les cases retiennent la bille : tire fort.</span></button>
-            <button type="button" class="terrain-card" data-terrain="terre" aria-pressed="false"><i class="tswatch t-terre"></i><strong>Terre</strong><span>La bille freine vite. Gare au pot au centre.</span></button>
-          </div>
-        </div>
-      </div>
-      <div class="step" data-step="3">
-        <button type="button" class="step-head" data-open="3"><span class="step-num">3</span><span class="step-title">Ton adversaire</span><span class="step-sum" id="sum3"></span></button>
-        <div class="step-body">
-          <button type="button" class="primary" id="botBtn">Jouer contre l'ordi</button>
-          <div class="online">
-            <span class="label">En ligne</span>
-            <p class="note" id="lobbyNote">Connexion à la salle...</p>
-            <ul class="peers" id="peerList"></ul>
-          </div>
-        </div>
-      </div>
-    </div>
   </section>
 
   <section class="view" id="view-bag" hidden>
     <div class="bag-head">
-      <h2>Mon sac</h2>
+      <button type="button" class="ghost" id="albumBtn" data-view="album">Album <span class="num" id="albumCount"></span></button>
       <button type="button" class="ghost" id="discardToggle">Défausser</button>
     </div>
-    <p class="note" id="bagHint" aria-live="polite"></p>
     <div class="chips" role="group" aria-label="Filtrer par rareté" id="bagFilters"></div>
+    <p class="note" id="bagHint" aria-live="polite"></p>
     <div class="grid" id="bagGrid"></div>
     <div class="discard-bar" id="discardBar" hidden>
       <div class="discard-info">
@@ -381,8 +485,8 @@
   </section>
 
   <section class="view" id="view-album" hidden>
+    <div class="row"><button type="button" class="ghost" data-view="bag">‹ Retour au sac</button></div>
     <div class="album-head">
-      <h2>Album</h2>
       <p class="note" id="albumSummary"></p>
       <div class="progress" aria-hidden="true"><span id="albumBar"></span></div>
     </div>
@@ -390,25 +494,41 @@
   </section>
 
   <section class="view" id="view-pack" hidden>
-    <h2>Machine à billes</h2>
-    <p class="note">Chaque ticket lâche une bille dans la cascade. Le centre ne donne rien ou rembourse ton ticket. Les billes ne tombent que dans les cases éloignées, d'autant plus rares qu'elles sont sur les côtés.</p>
     <div class="machine" id="machine"><canvas id="plinko" aria-label="Machine à billes"></canvas></div>
-    <div class="row">
-      <button type="button" class="primary" id="dropBtn">Lancer une bille (1 ticket)</button>
-      <span class="status" id="ticketInfo"></span>
-    </div>
-    <div class="row">
-      <button type="button" class="ghost" id="claimBtn">Récupérer les tickets gratuits</button>
-      <button type="button" class="ghost" id="testTicketsBtn">Debug : +10 tickets</button>
-      <span class="note" id="packInfo"></span>
-    </div>
-    <div class="grid reveal" id="packReveal"></div>
-    <div class="panel">
-      <span class="label">Chances par lancer (mesurées sur 8 000 lancers)</span>
+    <button type="button" class="drop-btn" id="dropBtn"><span class="drop-main">Lancer une bille</span><span class="drop-cost">1 ticket</span></button>
+    <section class="panel" aria-label="Dernières billes gagnées">
+      <div class="gains-head"><span class="label">Derniers gains</span><span id="ticketInfo"></span></div>
+      <div class="grid gains reveal" id="packReveal"></div>
+      <p class="note" id="gainsEmpty">Les billes gagnées apparaissent ici.</p>
+    </section>
+    <details class="panel rates-box">
+      <summary>Chances par lancer</summary>
+      <p class="note">Mesurées sur 8 000 lancers. Le centre ne donne rien ou rembourse ton ticket.</p>
       <div class="rates" id="rates"></div>
-    </div>
+    </details>
+    <div class="row"><button type="button" class="ghost" id="testTicketsBtn">Debug : +10 tickets</button></div>
   </section>
 </div>
+
+<nav class="nav" aria-label="Navigation">
+  <div class="nav-in">
+    <button type="button" data-view="bag" aria-current="false">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 8c0-2.8 2.2-5 5-5s5 2.2 5 5"></path><path d="M5 8h14l-1 12H6z"></path><path d="M9 4l3 3 3-3"></path></svg>
+      Sac
+    </button>
+    <button type="button" data-view="play" aria-current="true">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7"></path><path d="M5 10v10h14V10"></path><path d="M10 20v-6h4v6"></path></svg>
+      Accueil
+    </button>
+    <button type="button" data-view="pack" aria-current="false">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="4" r="1.3"></circle><circle cx="9" cy="8" r="1.3"></circle><circle cx="15" cy="8" r="1.3"></circle><circle cx="6" cy="12" r="1.3"></circle><circle cx="12" cy="12" r="1.3"></circle><circle cx="18" cy="12" r="1.3"></circle><path d="M4 17v4M8 17v4M12 17v4M16 17v4M20 17v4M3 21h18"></path></svg>
+      Machine
+      <span class="dot" id="packDot" hidden></span>
+    </button>
+  </div>
+</nav>
+
+<div class="loading" id="loading" role="status">Préparation des billes...</div>
 
 <div class="tuto" id="tuto" hidden role="dialog" aria-modal="true" aria-labelledby="tutoTitle">
   <div class="tuto-card">
@@ -505,8 +625,21 @@
     return s;
   }
 
+  /* Familles de couleur : chaque bille tirée a autant de chances d'être rouge, orange, jaune, verte, bleue ou violette. */
+  const HUE_FAMILIES = [
+    { id: 'rouge', name: 'Rouge', from: 350, to: 370 },
+    { id: 'orange', name: 'Orange', from: 18, to: 36 },
+    { id: 'jaune', name: 'Jaune', from: 44, to: 62 },
+    { id: 'vert', name: 'Vert', from: 85, to: 150 },
+    { id: 'bleu', name: 'Bleu', from: 180, to: 245 },
+    { id: 'violet', name: 'Violet', from: 265, to: 330 }
+  ];
+  const hueFamily = (h) => h >= 345 || h < 15 ? 'rouge' : h < 40 ? 'orange' : h < 70 ? 'jaune' : h < 165 ? 'vert' : h < 255 ? 'bleu' : 'violet';
+
   function makeDef(type) {
-    return { uid: randId(12), type: type, hue: Math.floor(Math.random() * 360), seed: Math.floor(Math.random() * 1e9) + 1 };
+    const f = HUE_FAMILIES[Math.floor(Math.random() * HUE_FAMILIES.length)];
+    const hue = Math.floor(f.from + Math.random() * (f.to - f.from)) % 360;
+    return { uid: randId(12), type: type, hue: hue, seed: Math.floor(Math.random() * 1e9) + 1 };
   }
 
   const typesOf = (rarity) => TYPES.filter((t) => CATALOG[t].rarity === rarity);
@@ -1362,6 +1495,43 @@
     return x < 0.7 ? 1 : 3;
   };
   const isGlass = (def) => GLASS_TYPES.includes(def.type) && !(def.type === 'swirl' && ribbonVariantOf(def) === 2) && !(def.type === 'spider' && ribbonVariantOf(def) === 0) && !(def.type === 'nugget' && ribbonVariantOf(def) !== 1);
+
+  /* Album : une case par coloris. Le coloris se déduit des mêmes tirages que le dessin de la bille,
+     donc la case correspond toujours à ce qu'on voit. */
+  function entryOf(def) {
+    const t = def.type;
+    const fam = hueFamily(def.hue);
+    if (t === 'gold' || t === 'silver' || t === 'diamond') return t;
+    if (t === 'cateye') return rng(def.seed + 17)() < 0.6 ? 'cateye:trio' : 'cateye:' + fam;
+    if (t === 'swirl') return 'swirl:' + (ribbonVariantOf(def) === 0 ? 'fil' : 'plein') + ':' + fam;
+    if (t === 'tornado') return 'tornado:' + (ribbonVariantOf(def) === 1 ? 'ruban' : 'voile') + ':' + fam;
+    if (t === 'spider') return ribbonVariantOf(def) === 1 ? 'spider:cristal' : 'spider:' + ['rouge', 'bleu', 'vert'][Math.floor(rng(def.seed + 29)() * 3)];
+    if (t === 'nugget') return 'nugget:' + ['nuit', 'cristal', 'opaque'][ribbonVariantOf(def)];
+    if (t === 'agate') return 'agate:' + ['rouge', 'orange', 'bleu', 'vert', 'jaune', 'sombre'][Math.floor(rng(def.seed + 43)() * 6)];
+    if (t === 'galaxy') return 'galaxy:' + ['nuit', 'nuit', 'jaune', 'rouge', 'vert', 'ciel'][Math.floor(rng(def.seed + 37)() * 6)];
+    return t + ':' + fam;
+  }
+  const ALBUM = (function () {
+    const list = [];
+    const add = (type, key, label) => list.push({ type: type, key: key, label: label });
+    const byHue = (type, prefix, word) => HUE_FAMILIES.forEach(function (f) {
+      add(type, type + ':' + (prefix ? prefix + ':' : '') + f.id, word ? word + ' ' + f.name.toLowerCase() : f.name);
+    });
+    TYPES.forEach(function (t) {
+      if (t === 'gold' || t === 'silver' || t === 'diamond') add(t, t, CATALOG[t].name);
+      else if (t === 'cateye') { add(t, 'cateye:trio', 'Classique'); byHue(t); }
+      else if (t === 'swirl') { byHue(t, 'fil', 'Fil'); byHue(t, 'plein', 'Plein'); }
+      else if (t === 'tornado') { byHue(t, 'ruban', 'Ruban'); byHue(t, 'voile', 'Voile'); }
+      else if (t === 'spider') [['rouge', 'Rouge'], ['bleu', 'Bleu'], ['vert', 'Vert'], ['cristal', 'Cristal']].forEach((v) => add(t, 'spider:' + v[0], v[1]));
+      else if (t === 'nugget') [['nuit', 'Nuit'], ['cristal', 'Cristal'], ['opaque', 'Opaque']].forEach((v) => add(t, 'nugget:' + v[0], v[1]));
+      else if (t === 'agate') [['rouge', 'Rouge'], ['orange', 'Orange'], ['jaune', 'Jaune'], ['vert', 'Vert'], ['bleu', 'Bleu'], ['sombre', 'Sombre']].forEach((v) => add(t, 'agate:' + v[0], v[1]));
+      else if (t === 'galaxy') [['nuit', 'Nuit'], ['ciel', 'Ciel'], ['vert', 'Vert'], ['jaune', 'Jaune'], ['rouge', 'Rouge']].forEach((v) => add(t, 'galaxy:' + v[0], v[1]));
+      else byHue(t);
+    });
+    return list;
+  })();
+  const ALBUM_KEYS = new Set(ALBUM.map((e) => e.key));
+
   const SUN_DIR = new THREE.Vector3(-6, 14, 6).normalize();
   const GROUND_DUEL = new THREE.Color(0x6b737b).convertSRGBToLinear();
   const GROUND_THUMB = new THREE.Color(0xb8bec5).convertSRGBToLinear();
@@ -1623,9 +1793,6 @@
     terreGroup.visible = terre;
     coverBodies.forEach(function (b) { b.position.y = plate ? b.restY : -50; b.aabbNeedsUpdate = true; });
     tarmacBodies.forEach(function (b) { b.position.y = plate ? -50 : b.restY; b.aabbNeedsUpdate = true; });
-    document.querySelectorAll('[data-terrain]').forEach(function (b) {
-      b.setAttribute('aria-pressed', b.dataset.terrain === name ? 'true' : 'false');
-    });
   }
 
   const snapToCell = (v) => (Math.floor(v / COVER.cell) + 0.5) * COVER.cell;
@@ -1747,8 +1914,27 @@
       tickets: Math.max(0, Math.floor(Number(o.tickets) || 0)),
       nextPackAt: Number(o.nextPackAt) || 0,
       stakeUid: typeof o.stakeUid === 'string' ? o.stakeUid : null,
-      seen: Array.isArray(o.seen) ? o.seen.map((t) => RETIRED_TYPES[t] || t).filter((t) => Object.prototype.hasOwnProperty.call(CATALOG, t)) : []
+      found: sanitizeFound(o, list)
     };
+  }
+
+  /* Coloris déjà trouvés : clé du coloris vers [teinte, graine] de la première bille trouvée (pour la dessiner dans l'album). */
+  function sanitizeFound(o, list) {
+    const found = {};
+    if (o.found && typeof o.found === 'object') {
+      Object.keys(o.found).forEach(function (k) {
+        const v = o.found[k];
+        if (ALBUM_KEYS.has(k) && Array.isArray(v) && v.length === 2 && v.every((x) => Number.isFinite(Number(x)))) found[k] = [Math.floor(Number(v[0])) % 360, Math.floor(Math.abs(Number(v[1]))) || 1];
+      });
+    } else if (Array.isArray(o.seen)) {
+      /* Ancien album (un seul exemplaire par type) : chaque type déjà vu garde au moins un coloris. */
+      o.seen.map((t) => RETIRED_TYPES[t] || t).forEach(function (t) {
+        if (!Object.prototype.hasOwnProperty.call(CATALOG, t) || list.some((m) => m.type === t)) return;
+        const d = makeDef(t);
+        found[entryOf(d)] = [d.hue, d.seed];
+      });
+    }
+    return found;
   }
 
   function loadLocal() {
@@ -1763,10 +1949,13 @@
   let writing = false;
   let dirty = false;
 
-  /* Album : on retient chaque type de bille déjà possédé, même si la bille a été perdue ou défaussée depuis. */
+  /* Album : on retient chaque coloris déjà possédé, même si la bille a été perdue ou défaussée depuis. */
   function markSeen() {
-    if (!Array.isArray(bag.seen)) bag.seen = [];
-    bag.marbles.forEach(function (m) { if (!bag.seen.includes(m.type)) bag.seen.push(m.type); });
+    if (!bag.found || typeof bag.found !== 'object') bag.found = {};
+    bag.marbles.forEach(function (m) {
+      const k = entryOf(m);
+      if (!bag.found[k]) bag.found[k] = [m.hue, m.seed];
+    });
   }
 
   function persist() {
@@ -1805,6 +1994,7 @@
 
   function startMatch(opts) {
     clearTimeout(botTimer);
+    showView('play');
     game.active = true;
     game.mode = opts.mode;
     game.my = opts.my;
@@ -1821,7 +2011,9 @@
     game.turn = opts.starter;
     game.shotCount = 0;
     if (game.net) setPresence('playing');
+    $('turnPill').hidden = false;
     renderAll();
+    resize();
     showVsIntro(opts);
     beginTurn();
   }
@@ -1833,7 +2025,8 @@
     $('vsMe').replaceChildren(thumbCanvas(opts.my, 84));
     $('vsOpp').replaceChildren(thumbCanvas(opts.opp, 84));
     $('vsOppName').textContent = opts.oppName;
-    $('vsInfo').textContent = TERRAIN_NAMES[opts.terrain] + ' · le gagnant prend la bille de l\'autre et ' + ticketsText(prize);
+    $('vsTerrain').textContent = TERRAIN_NAMES[opts.terrain];
+    $('vsInfo').textContent = 'Le gagnant prend la bille de l\'autre et ' + ticketsText(prize) + '.';
     const el = $('vsIntro');
     el.hidden = false;
     el.style.animation = 'none';
@@ -1859,14 +2052,16 @@
   function resetQuit() {
     clearTimeout(resetQuit.t);
     $('quitBtn').classList.remove('confirm');
-    $('quitBtn').textContent = 'Abandonner';
+    $('quitText').hidden = true;
+    $('quitText').textContent = '';
   }
   $('quitBtn').addEventListener('click', function () {
     if (!game.active || game.phase === 'over') return;
     const btn = $('quitBtn');
     if (!btn.classList.contains('confirm')) {
       btn.classList.add('confirm');
-      btn.textContent = game.mode === 'bot' ? 'Confirmer : tu perds ta bille' : 'Confirmer : quitter la partie';
+      $('quitText').textContent = game.mode === 'bot' ? 'Confirmer : tu perds ta bille' : 'Confirmer : quitter';
+      $('quitText').hidden = false;
       resetQuit.t = setTimeout(resetQuit, 3500);
       return;
     }
@@ -1882,9 +2077,10 @@
     game.shotCount = (game.shotCount || 0) + 1;
     const first = game.shotCount === 1;
     const toastDelay = Math.max(0, introUntil - performance.now());
+    setTurnPill(game.turn === 0);
     if (game.turn === 0) {
       game.phase = 'aim';
-      setStatus(first ? 'Premier tir : place ta bille, tu ne peux pas encore tiquer.' : "À toi de tirer. Glisse vers l'arrière puis relâche.");
+      setStatus(first ? "Premier tir : place ta bille, tu ne peux pas encore tiquer. Glisse vers l'arrière puis relâche." : "Glisse vers l'arrière puis relâche. Ta main tremble un peu : choisis ton moment.");
       showTurnToast('À toi !', toastDelay);
     } else if (game.mode === 'bot') {
       game.phase = 'aim';
@@ -1897,6 +2093,13 @@
       setStatus(game.oppName + ' tire...');
       showTurnToast('Tour de ' + game.oppName, toastDelay);
     }
+  }
+
+  function setTurnPill(mine) {
+    $('turnPill').classList.toggle('mine', mine);
+    $('turnText').textContent = mine ? 'À toi de tirer' : (game.mode === 'bot' ? "L'ordi" : game.oppName) + ' joue';
+    $('hudMeCard').classList.toggle('turn', mine);
+    $('hudOppCard').classList.toggle('turn', !mine);
   }
 
   function shoot(player, dir, power) {
@@ -1945,6 +2148,7 @@
     if (!game.active || game.phase === 'over') return;
     game.phase = 'over';
     clearTimeout(botTimer);
+    $('turnPill').hidden = true;
     /* Petit ralenti au moment où les billes se touchent. */
     game.slowUntil = performance.now() + 900;
     setTimeout(winner === 0 ? playWin : playLose, 500);
@@ -1969,6 +2173,7 @@
     if (!game.active || game.phase === 'over') return;
     game.phase = 'over';
     clearTimeout(botTimer);
+    $('turnPill').hidden = true;
     showBanner('Partie annulée', message, null);
     setStatus('');
   }
@@ -1984,19 +2189,18 @@
     game.phase = 'idle';
     game.targets = null;
     $('banner').hidden = true;
-    flow.step = 3;
     showIdle();
     renderAll();
   }
 
   function showBanner(title, sub, def) {
     $('replayBtn').hidden = !(game.mode === 'bot' && game.phase === 'over' && game.active && getStake() && title.indexOf('annulée') < 0);
-    $('bannerBtn').textContent = $('replayBtn').hidden ? 'Continuer' : 'Changer de bille ou de terrain';
+    $('bannerBtn').textContent = $('replayBtn').hidden ? 'Continuer' : 'Changer de bille';
     $('bannerTitle').textContent = title;
     $('bannerSub').textContent = sub;
     const holder = $('bannerThumb');
     holder.replaceChildren();
-    if (def) holder.appendChild(thumbCanvas(def, 56));
+    if (def) holder.appendChild(thumbCanvas(def, 96));
     $('banner').hidden = false;
   }
 
@@ -2016,7 +2220,10 @@
     const stake = getStake();
     if (!stake || game.active) return;
     const opp = makeDef(pick(typesOf(rarityOf(stake))));
-    startMatch({ mode: 'bot', my: stake, opp: opp, oppName: "L'ordi", terrain: terrain, spots: randomSpots(), starter: Math.random() < 0.5 ? 0 : 1 });
+    /* Le terrain est tiré au sort à chaque partie (les départs en dépendent, donc on le pose d'abord). */
+    const where = pick(TERRAIN_LIST);
+    setTerrain(where);
+    startMatch({ mode: 'bot', my: stake, opp: opp, oppName: "L'ordi", terrain: where, spots: randomSpots(), starter: Math.random() < 0.5 ? 0 : 1 });
   }
 
   /* ================= Réseau : état des billes ================= */
@@ -2132,8 +2339,8 @@
     const stake = getStake();
     if (!stake || game.active || net.pending || !net.room) return;
     const gid = randId(10);
-    net.pending = { gid: gid, to: peer.peer, by: peer.by, stake: pub(stake), terrain: terrain };
-    net.room.emit('challenge', { to: peer.peer, gid: gid, marble: pub(stake), terrain: terrain }).catch(function (e) {
+    net.pending = { gid: gid, to: peer.peer, by: peer.by, stake: pub(stake) };
+    net.room.emit('challenge', { to: peer.peer, gid: gid, marble: pub(stake) }).catch(function (e) {
       net.pending = null;
       if (e && e.code === 'not_permitted') net.canSend = false;
       renderLobby();
@@ -2157,7 +2364,7 @@
       net.room.emit('answer', { to: msg.peer, gid: d.gid, accept: false, busy: true }).catch(function () {});
       return;
     }
-    net.incoming = { from: msg.peer, by: msg.by, gid: d.gid, marble: marble, terrain: (['tarmac', 'plate', 'terre'].includes(d.terrain) ? d.terrain : 'tarmac') };
+    net.incoming = { from: msg.peer, by: msg.by, gid: d.gid, marble: marble };
     showView('play');
     renderLobby();
   }
@@ -2188,7 +2395,7 @@
         if (!s) return;
         waiting.done = true;
         startMatch({
-          mode: 'online', my: def, opp: inc.marble, oppName: name, terrain: (['tarmac', 'plate', 'terre'].includes(msg.data.terrain) ? msg.data.terrain : 'tarmac'),
+          mode: 'online', my: def, opp: inc.marble, oppName: name, terrain: (TERRAIN_LIST.includes(msg.data.terrain) ? msg.data.terrain : 'tarmac'),
           spots: s.map((e) => ({ x: e.p.x, z: e.p.z })), starter: msg.data.starter === 'guest' ? 0 : 1, net: game.net
         });
       });
@@ -2232,7 +2439,7 @@
         const here = change.peers.some((x) => x.peer === p.to);
         if (!started && here) {
           started = true;
-          const spotsTerrain = p.terrain;
+          const spotsTerrain = pick(TERRAIN_LIST);
           setTerrain(spotsTerrain);
           const starter = Math.random() < 0.5 ? 0 : 1;
           startMatch({ mode: 'online', my: mine, opp: theirs, oppName: name, terrain: spotsTerrain, spots: randomSpots(), starter: starter, net: netInfo });
@@ -2332,8 +2539,21 @@
   function gaussian() {
     return Math.sqrt(-2 * Math.log(1 - Math.random())) * Math.cos(2 * Math.PI * Math.random());
   }
+  /* Barre de force : visible quand c'est à toi, elle suit la longueur du geste. */
+  let shownForce = -1;
   function updateAim(now) {
     if (drag && drag.pull) showAim(aimedPull(drag.pull, now / 1000));
+    $('forceRow').classList.toggle('off', !canHumanShoot());
+    const p = drag && drag.pull ? drag.pull.power : 0;
+    const pct = Math.round(p * 100);
+    if (pct === shownForce) return;
+    shownForce = pct;
+    const fill = $('forceFill');
+    fill.style.width = pct + '%';
+    /* Le dégradé reste calé sur toute la barre : il passe au rouge seulement près du maximum. */
+    fill.style.backgroundSize = pct > 0 ? (10000 / pct) + '% 100%' : '';
+    $('forceVal').textContent = pct + ' %';
+    $('forceMeter').setAttribute('aria-valuenow', String(pct));
   }
 
   canvas.addEventListener('pointermove', function (ev) {
@@ -2484,7 +2704,10 @@
   document.addEventListener('pointerdown', function () { audio(); }, true);
 
   /* ================= Interface ================= */
-  function setStatus(text) { $('status').textContent = text; }
+  function setStatus(text) {
+    $('status').textContent = text;
+    $('homeStatus').textContent = game.active ? '' : text;
+  }
 
   /* Les miniatures pas encore en cache sont rendues une par une, image après image : l'écran reste réactif. */
   const THUMB_BLANK = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
@@ -2494,27 +2717,29 @@
     while (thumbQueue.length && performance.now() - start < 12) {
       const job = thumbQueue.shift();
       if (!job.img.isConnected) continue;
-      job.img.src = thumbUrl(job.def);
+      job.img.src = thumbUrl(job.def, job.px);
       job.img.classList.remove('thumb-pending');
     }
     if (thumbQueue.length) requestAnimationFrame(pumpThumbs);
   }
-  function queueThumb(img, def) {
+  function queueThumb(img, def, px) {
     if (!thumbQueue.length) requestAnimationFrame(pumpThumbs);
-    thumbQueue.push({ img: img, def: def });
+    thumbQueue.push({ img: img, def: def, px: px });
   }
   const thumbObserver = window.IntersectionObserver ? new IntersectionObserver(function (entries) {
     entries.forEach(function (e) {
       if (!e.isIntersecting) return;
       thumbObserver.unobserve(e.target);
-      queueThumb(e.target, e.target.__thumbDef);
+      queueThumb(e.target, e.target.__thumbDef, e.target.__thumbPx);
     });
   }, { rootMargin: '200px' }) : null;
   function thumbCanvas(def, size) {
     const img = document.createElement('img');
     img.width = img.height = size;
     img.alt = CATALOG[def.type].name;
-    const cached = thumbCache.get(def.type + ':' + def.hue + ':' + def.seed + ':160');
+    /* Les grandes images (accueil) sont rendues en haute définition. */
+    const px = size > 100 ? THUMB_RT : 160;
+    const cached = thumbCache.get(def.type + ':' + def.hue + ':' + def.seed + ':' + px);
     if (cached) {
       img.src = cached;
     } else {
@@ -2523,9 +2748,10 @@
       /* Avec des centaines de billes, seules celles visibles à l'écran sont dessinées. */
       if (thumbObserver) {
         img.__thumbDef = def;
+        img.__thumbPx = px;
         thumbObserver.observe(img);
       } else {
-        queueThumb(img, def);
+        queueThumb(img, def, px);
       }
     }
     return img;
@@ -2545,7 +2771,7 @@
     return wrap;
   }
 
-  function cardEl(def, onPick, pressed) {
+  function cardEl(def, onPick, pressed, size) {
     const el = document.createElement(onPick ? 'button' : 'div');
     el.className = 'card r-' + rarityOf(def);
     if (onPick) {
@@ -2553,75 +2779,97 @@
       el.setAttribute('aria-pressed', pressed ? 'true' : 'false');
       el.addEventListener('click', onPick);
     }
-    el.append(thumbCanvas(def, 56), labelFor(def));
+    el.append(thumbCanvas(def, size || 56), labelFor(def));
     return el;
   }
 
   const byRarity = (a, b) => RARITIES[rarityOf(b)].rank - RARITIES[rarityOf(a)].rank || a.type.localeCompare(b.type);
 
-  /* Écran Jouer en 3 étapes : ta bille, le terrain, l'adversaire. Une seule étape ouverte à la fois,
-     les étapes faites se résument sur une ligne et se rouvrent d'un appui. */
-  const flow = { step: 1 };
+  /* Accueil : ta bille de jeu en grand, à faire défiler avec les flèches. Le terrain est tiré au sort au lancement. */
   const TERRAIN_NAMES = { tarmac: 'Goudron', plate: "Plaque d'égout", terre: 'Terre' };
+  const TERRAIN_LIST = Object.keys(TERRAIN_NAMES);
+  const sortedBag = () => bag.marbles.slice().sort(byRarity);
 
   function chooseStake(def) {
     if (game.active) return;
     bag.stakeUid = def.uid;
     persist();
-    flow.step = 2;
     showIdle();
     renderAll();
   }
 
-  function renderFlow() {
-    const stake = getStake();
-    $('flow').hidden = game.active;
-    /* Hors partie, le terrain se fait petit : les étapes à suivre restent visibles sans défiler. */
-    $('stage').classList.toggle('compact', !game.active);
+  function stepStake(delta) {
+    const list = sortedBag();
+    if (list.length < 2 || game.active) return;
+    const i = Math.max(0, list.findIndex((m) => m.uid === bag.stakeUid));
+    chooseStake(list[(i + delta + list.length) % list.length]);
+    const el = $('heroMain');
+    el.classList.remove('swap');
+    void el.offsetWidth;
+    el.classList.add('swap');
+    tone(660 + delta * 80, 0.05, 0.06, 'triangle');
+  }
+
+  function fillHud() {
+    const prize = TICKETS_BY_RARITY[rarityOf(game.my)];
+    $('hudMe').replaceChildren(thumbCanvas(game.my, 38));
+    $('hudOpp').replaceChildren(thumbCanvas(game.opp, 38));
+    $('hudMeName').textContent = CATALOG[game.my.type].name;
+    $('hudOppName').textContent = game.oppName;
+    $('hudOppMarble').textContent = CATALOG[game.opp.type].name;
+    $('hudStake').textContent = '+' + ticketsText(prize);
+    $('hudTerrain').textContent = TERRAIN_NAMES[terrain];
+    resetQuit();
+  }
+
+  let heroKey = '';
+  function renderHome() {
     const wasInMatch = document.body.classList.contains('in-match');
     document.body.classList.toggle('in-match', game.active);
     $('hud').hidden = !game.active;
     if (game.active) {
-      if (!wasInMatch) {
-        const prize = TICKETS_BY_RARITY[rarityOf(game.my)];
-        $('hudMe').replaceChildren(thumbCanvas(game.my, 34));
-        $('hudOpp').replaceChildren(thumbCanvas(game.opp, 34));
-        $('hudOppName').textContent = game.oppName;
-        $('hudStake').textContent = '+' + ticketsText(prize);
-        resetQuit();
-      }
+      if (!wasInMatch) fillHud();
       return;
     }
     if (wasInMatch) window.scrollTo(0, 0);
-    if (!stake) flow.step = 1;
-    $('sum1').textContent = stake ? CATALOG[stake.type].name + ' (' + RARITIES[rarityOf(stake)].name.toLowerCase() + ')' : 'À choisir';
-    $('sum2').textContent = TERRAIN_NAMES[terrain];
-    $('sum3').textContent = '';
-    document.querySelectorAll('#flow .step').forEach(function (el) {
-      const n = Number(el.dataset.step);
-      const done = n < flow.step && (n !== 1 || stake);
-      el.classList.toggle('open', n === flow.step);
-      el.classList.toggle('done', done);
-      el.querySelector('.step-num').textContent = done ? '✓' : n;
-      el.querySelector('.step-head').disabled = n > 1 && !stake;
-      el.querySelector('.step-head').setAttribute('aria-expanded', n === flow.step ? 'true' : 'false');
-    });
-    $('botBtn').disabled = !stake;
-    $('toMachineBtn').hidden = bag.marbles.length > 0;
-    if (!bag.marbles.length) {
-      $('stakeNote').textContent = 'Ton sac est vide. Lance des billes dans la machine pour en gagner.';
-    } else if (stake) {
-      const prize = TICKETS_BY_RARITY[rarityOf(stake)];
-      $('stakeNote').textContent = "Tu joues contre une bille " + RARITIES[rarityOf(stake)].name.toLowerCase() + ". Si tu gagnes : sa bille et " + ticketsText(prize) + ". Si tu perds : tu perds ta " + CATALOG[stake.type].name + '.';
-    } else {
-      $('stakeNote').textContent = "Touche la bille que tu veux jouer. Plus elle est rare, plus tu gagnes de tickets.";
+    const list = sortedBag();
+    if (!getStake() && list.length) bag.stakeUid = list[0].uid;
+    const stake = getStake();
+    const i = stake ? list.indexOf(stake) : -1;
+    const many = list.length > 1;
+    const prev = many && list.length > 2 ? list[(i - 1 + list.length) % list.length] : null;
+    const next = many ? list[(i + 1) % list.length] : null;
+    const key = [stake, prev, next].map((d) => (d ? d.uid : '-')).join('|');
+    if (key !== heroKey) {
+      heroKey = key;
+      const mystery = document.createElement('span');
+      mystery.className = 'mystery';
+      mystery.textContent = '?';
+      $('heroMain').replaceChildren(stake ? thumbCanvas(stake, 210) : mystery);
+      $('heroPrev').replaceChildren(prev ? thumbCanvas(prev, 104) : '');
+      $('heroNext').replaceChildren(next ? thumbCanvas(next, 104) : '');
     }
-    if (flow.step !== 1) return;
-    const strip = $('stakeStrip');
-    strip.replaceChildren();
-    bag.marbles.slice().sort(byRarity).forEach(function (def) {
-      strip.append(cardEl(def, function () { chooseStake(def); }, def.uid === bag.stakeUid));
-    });
+    $('prevBtn').hidden = $('nextBtn').hidden = !many;
+    $('heroRarity').hidden = !stake;
+    $('botBtn').hidden = !stake;
+    $('toMachineBtn').hidden = !!stake;
+    const risk = $('stakeRisk');
+    risk.replaceChildren();
+    if (!stake) {
+      $('heroName').textContent = 'Sac vide';
+      $('stakeNote').textContent = 'Lance des billes dans la machine pour en gagner.';
+      return;
+    }
+    const r = rarityOf(stake);
+    $('heroName').textContent = CATALOG[stake.type].name;
+    $('heroRarity').textContent = RARITIES[r].name;
+    $('heroRarity').className = 'rchip r-' + r;
+    $('stakeNote').textContent = 'Ta bille de jeu · ' + (i + 1) + ' sur ' + list.length + ' dans ton sac';
+    const b1 = document.createElement('b');
+    b1.textContent = 'sa bille et ' + ticketsText(TICKETS_BY_RARITY[r]);
+    const b2 = document.createElement('b');
+    b2.textContent = 'ta bille';
+    risk.append('Contre une bille ' + RARITIES[r].name.toLowerCase() + '. Gagne : ', b1, '. Perds : ', b2, '.');
   }
 
   /* Sac : filtre par rareté, choix de la bille de jeu, et défausse de 3 billes contre 1 ticket (autant de lots qu'on veut). */
@@ -2633,11 +2881,12 @@
     box.replaceChildren();
     const counts = { all: bag.marbles.length };
     bag.marbles.forEach(function (m) { counts[rarityOf(m)] = (counts[rarityOf(m)] || 0) + 1; });
-    const labels = { all: 'Toutes', common: 'Communes', uncommon: 'Peu communes', rare: 'Rares', legend: 'Légendaires' };
+    const labels = { all: 'Toutes', legend: 'Légendaires', rare: 'Rares', uncommon: 'Peu communes', common: 'Communes' };
     Object.keys(labels).forEach(function (id) {
       const b = document.createElement('button');
       b.type = 'button';
       b.setAttribute('aria-pressed', bagUi.filter === id ? 'true' : 'false');
+      b.dataset.r = id;
       b.textContent = labels[id];
       const n = document.createElement('span');
       n.className = 'num';
@@ -2661,7 +2910,6 @@
   function renderBag() {
     if (game.active && bagUi.discarding) { bagUi.discarding = false; bagUi.picked = []; }
     bagUi.picked = bagUi.picked.filter((uid) => bag.marbles.some((m) => m.uid === uid));
-    $('bagCount').textContent = bag.marbles.length;
     renderBagFilters();
     renderDiscardBar();
     /* Les miniatures ne sont fabriquées que quand le sac est affiché : le démarrage reste rapide. */
@@ -2680,12 +2928,12 @@
     list.forEach(function (def) {
       const picked = bagUi.picked.includes(def.uid);
       const card = bagUi.discarding
-        ? cardEl(def, function () { togglePick(def.uid); }, picked)
+        ? cardEl(def, function () { togglePick(def.uid); }, picked, 84)
         : cardEl(def, function () {
           if (game.active) return;
           showView('play');
           chooseStake(def);
-        }, def.uid === bag.stakeUid);
+        }, def.uid === bag.stakeUid, 84);
       if (def.uid === bag.stakeUid) {
         const tag = document.createElement('span');
         tag.className = 'tag';
@@ -2712,7 +2960,7 @@
     toggle.disabled = game.active || (!bagUi.discarding && bag.marbles.length < DISCARD_COUNT);
     $('discardBar').hidden = !bagUi.discarding;
     if (!bagUi.discarding) {
-      if (!bagUi.flash) $('bagHint').textContent = 'Touche une bille pour la choisir comme bille de jeu.';
+      if (!bagUi.flash) $('bagHint').textContent = 'Touche une bille pour la jouer.';
       return;
     }
     if (!bagUi.flash) $('bagHint').textContent = 'Sélectionne les billes à défausser. Chaque lot de ' + DISCARD_COUNT + ' billes donne 1 ticket.';
@@ -2759,15 +3007,17 @@
     const ready = wait <= 0;
     $('packDot').hidden = !ready;
     $('ticketCount').textContent = bag.tickets;
+    $('ticketPill').setAttribute('aria-label', ticketsText(bag.tickets) + ', aller à la machine');
     $('claimBtn').disabled = !ready;
     const full = bag.marbles.length + plinko.balls.length >= BAG_MAX;
     $('dropBtn').disabled = bag.tickets < 1 || full;
     $('ticketInfo').textContent = full
-      ? 'Ton sac est plein (' + BAG_MAX + ' billes). Défausse des billes pour en gagner d\'autres.'
-      : 'Il te reste ' + ticketsText(bag.tickets) + '. Sac : ' + bag.marbles.length + '/' + BAG_MAX + '.';
-    $('packInfo').textContent = ready
-      ? FREE_TICKETS + ' tickets gratuits à récupérer.'
-      : 'Tickets gratuits dans ' + formatWait(wait) + '.';
+      ? 'Sac plein (' + BAG_MAX + '). Défausse des billes.'
+      : 'Sac : ' + bag.marbles.length + '/' + BAG_MAX;
+    $('gainsEmpty').hidden = $('packReveal').children.length > 0;
+    $('freeTitle').textContent = ready ? FREE_TICKETS + ' tickets gratuits' : 'Tickets gratuits';
+    $('packInfo').textContent = ready ? 'À récupérer maintenant' : 'Les suivants dans ' + formatWait(wait);
+    renderTitle();
   }
 
   function renderRates() {
@@ -2891,20 +3141,28 @@
     box.append(no);
   }
 
+  function albumExample(entry, ownedList) {
+    if (ownedList.length) return ownedList[0];
+    const f = bag.found[entry.key];
+    return { type: entry.type, hue: f[0], seed: f[1] };
+  }
+
   function renderAlbum() {
     markSeen();
-    const total = TYPES.length;
-    const found = TYPES.filter((t) => bag.seen.includes(t)).length;
+    const total = ALBUM.length;
+    const found = ALBUM.filter((e) => bag.found[e.key]).length;
     $('albumCount').textContent = found + '/' + total;
     $('albumSummary').textContent = found === total
-      ? 'Album complet : tu as trouvé les ' + total + ' billes !'
-      : found + ' billes trouvées sur ' + total + '. Les cases en pointillés restent à découvrir dans la machine ou en duel.';
+      ? 'Album complet : tu as trouvé les ' + total + ' coloris !'
+      : found + ' coloris trouvés sur ' + total + '. Chaque type de bille existe en plusieurs couleurs ou styles : les cases en pointillés restent à trouver.';
     $('albumBar').style.width = Math.round((found / total) * 100) + '%';
     if ($('view-album').hidden) return;
+    const owned = {};
+    bag.marbles.forEach(function (m) { (owned[entryOf(m)] = owned[entryOf(m)] || []).push(m); });
     const box = $('albumGroups');
     box.replaceChildren();
     ['legend', 'rare', 'uncommon', 'common'].forEach(function (r) {
-      const types = typesOf(r);
+      const entries = ALBUM.filter((e) => CATALOG[e.type].rarity === r);
       const group = document.createElement('section');
       group.className = 'album-group';
       const h = document.createElement('h3');
@@ -2913,76 +3171,97 @@
       title.textContent = RARITIES[r].name;
       const cnt = document.createElement('span');
       cnt.className = 'num';
-      cnt.textContent = types.filter((t) => bag.seen.includes(t)).length + '/' + types.length;
+      cnt.textContent = entries.filter((e) => bag.found[e.key]).length + '/' + entries.length;
       h.append(title, cnt);
-      const grid = document.createElement('div');
-      grid.className = 'grid';
-      types.forEach(function (t) {
-        const owned = bag.marbles.filter((m) => m.type === t);
-        let card;
-        if (bag.seen.includes(t)) {
-          const def = owned[0] || { type: t, hue: 200, seed: 1000 + TYPES.indexOf(t) * 7919 };
-          card = cardEl(def, null, false);
-          const n = document.createElement('span');
-          n.className = 'owned';
-          n.textContent = owned.length ? 'x' + owned.length + ' dans ton sac' : 'Plus dans ton sac';
-          card.append(n);
-        } else {
-          card = document.createElement('div');
-          card.className = 'card locked';
-          const q = document.createElement('span');
-          q.className = 'mystery';
-          q.textContent = '?';
-          q.setAttribute('aria-hidden', 'true');
-          const name = document.createElement('span');
-          name.className = 'card-name';
-          name.textContent = 'À découvrir';
-          card.append(q, name);
-        }
-        grid.append(card);
+      group.append(h);
+      /* Les types à un seul coloris (or, argent, diamant) partagent une même carte. */
+      const singles = typesOf(r).filter((t) => entries.filter((e) => e.type === t).length === 1);
+      const blocks = typesOf(r).filter((t) => !singles.includes(t)).map((t) => ({ title: CATALOG[t].name, list: entries.filter((e) => e.type === t) }));
+      if (singles.length) blocks.push({ title: 'Pièces uniques', list: entries.filter((e) => singles.includes(e.type)) });
+      blocks.forEach(function (blk) {
+        const list = blk.list;
+        const card = document.createElement('div');
+        card.className = 'album-type';
+        const h4 = document.createElement('h4');
+        const n = document.createElement('span');
+        n.textContent = blk.title;
+        const c = document.createElement('span');
+        c.className = 'num';
+        c.textContent = list.filter((e) => bag.found[e.key]).length + '/' + list.length;
+        h4.append(n, c);
+        const row = document.createElement('div');
+        row.className = 'album-row';
+        list.forEach(function (e) {
+          const slot = document.createElement('div');
+          const label = document.createElement('span');
+          label.textContent = e.label;
+          if (bag.found[e.key]) {
+            const mine = owned[e.key] || [];
+            slot.className = 'slot';
+            const img = thumbCanvas(albumExample(e, mine), 48);
+            img.alt = CATALOG[e.type].name + ' ' + e.label.toLowerCase();
+            const x = document.createElement('span');
+            x.className = 'owned';
+            x.textContent = mine.length ? 'x' + mine.length : 'perdue';
+            slot.append(img, label, x);
+          } else {
+            slot.className = 'slot locked';
+            const q = document.createElement('span');
+            q.className = 'mystery';
+            q.textContent = '?';
+            q.setAttribute('aria-hidden', 'true');
+            slot.append(q, label);
+          }
+          row.append(slot);
+        });
+        card.append(h4, row);
+        group.append(card);
       });
-      group.append(h, grid);
       box.append(group);
     });
   }
 
+  const VIEW_TITLES = { play: 'Billes', bag: 'Mon sac', album: 'Album', pack: 'Machine' };
+  let currentView = 'play';
+  function renderTitle() {
+    $('viewTitle').textContent = VIEW_TITLES[currentView];
+    const subs = {
+      bag: bag.marbles.length + (bag.marbles.length > 1 ? ' billes' : ' bille') + ' sur ' + BAG_MAX,
+      album: $('albumCount').textContent + ' coloris trouvés',
+      pack: 'Plus elle tombe sur le côté, plus elle est rare.'
+    };
+    $('viewSub').hidden = !subs[currentView];
+    $('viewSub').textContent = subs[currentView] || '';
+  }
+
   function renderAll() {
     renderAlbum();
-    renderFlow();
+    renderHome();
     renderBag();
     renderPack();
     renderLobby();
   }
 
   function showView(name) {
+    const changed = name !== currentView;
+    currentView = name;
     ['play', 'bag', 'album', 'pack'].forEach(function (v) { $('view-' + v).hidden = v !== name; });
     if (name === 'album') renderAlbum();
     if (name === 'bag') renderBag();
-    document.querySelectorAll('[data-view]').forEach(function (b) {
-      b.setAttribute('aria-current', b.dataset.view === name ? 'true' : 'false');
+    const tab = name === 'album' ? 'bag' : name;
+    document.querySelectorAll('.nav [data-view]').forEach(function (b) {
+      b.setAttribute('aria-current', b.dataset.view === tab ? 'true' : 'false');
     });
-    if (name === 'play') resize();
+    renderTitle();
+    if (changed) window.scrollTo(0, 0);
     if (name === 'pack') layoutPlinko();
   }
 
   document.querySelectorAll('[data-view]').forEach(function (b) {
     b.addEventListener('click', function () { showView(b.dataset.view); });
   });
-  document.querySelectorAll('[data-terrain]').forEach(function (b) {
-    b.addEventListener('click', function () {
-      if (game.active) return;
-      setTerrain(b.dataset.terrain);
-      flow.step = 3;
-      showIdle();
-      renderFlow();
-    });
-  });
-  document.querySelectorAll('#flow .step-head').forEach(function (h) {
-    h.addEventListener('click', function () {
-      flow.step = Number(h.dataset.open);
-      renderFlow();
-    });
-  });
+  $('prevBtn').addEventListener('click', function () { stepStake(-1); });
+  $('nextBtn').addEventListener('click', function () { stepStake(1); });
   $('toMachineBtn').addEventListener('click', function () { showView('pack'); });
   $('botBtn').addEventListener('click', startBotMatch);
   $('replayBtn').addEventListener('click', function () {
@@ -2990,8 +3269,10 @@
     startBotMatch();
   });
   function renderSoundBtn() {
-    $('soundBtn').textContent = sound.on ? 'Son : oui' : 'Son : non';
     $('soundBtn').setAttribute('aria-pressed', sound.on ? 'true' : 'false');
+    $('soundBtn').setAttribute('aria-label', sound.on ? 'Couper le son' : 'Remettre le son');
+    $('soundWaves').toggleAttribute('hidden', !sound.on);
+    $('soundOff').toggleAttribute('hidden', sound.on);
   }
   $('soundBtn').addEventListener('click', function () {
     sound.on = !sound.on;
@@ -3157,8 +3438,8 @@
     if (!getStake()) bag.stakeUid = def.uid;
     playPrize(prize);
     const reveal = $('packReveal');
-    reveal.prepend(cardEl(def, null, false));
-    while (reveal.children.length > 12) reveal.lastChild.remove();
+    reveal.prepend(cardEl(def, null, false, 46));
+    while (reveal.children.length > 4) reveal.lastChild.remove();
     scheduleRefresh();
   }
 
@@ -3430,7 +3711,7 @@
         m.mesh.quaternion.copy(m.body.quaternion);
       });
     }
-    if (!$('view-play').hidden) {
+    if (game.active) {
       updateCamera(false);
       updateAim(now);
       updateRollSound();
@@ -3477,7 +3758,6 @@
   requestAnimationFrame(function () {
     setTimeout(function () {
       thumbUrl({ type: 'cateye', hue: 0, seed: 1 });
-      flow.step = getStake() ? 3 : 1;
       showIdle();
       renderAll();
       $('loading').hidden = true;
