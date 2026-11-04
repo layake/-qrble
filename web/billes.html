@@ -28,6 +28,7 @@
     color-scheme: dark;
   }
 
+  *, *::before, *::after { box-sizing: border-box; }
   body {
     background: var(--bg);
     color: var(--ink);
@@ -79,30 +80,34 @@
   .num { font-variant-numeric: tabular-nums; color: inherit; opacity: 0.75; }
 
   /* Accueil : ta bille en grand sur le bitume, dans un cercle tracé à la craie. */
+  /* La hauteur du décor s'adapte à l'écran : sur un petit téléphone, le bouton JOUER reste visible sans défiler. */
   .hero {
-    position: relative; height: min(440px, 58vh); min-height: 320px; overflow: hidden;
+    --hh: clamp(180px, calc(100vh - 400px), 440px);
+    --ms: min(210px, calc(var(--hh) * 0.5));
+    position: relative; height: var(--hh); overflow: hidden;
     background:
       radial-gradient(circle at 30% 20%, #3a3f47 0 1.5px, transparent 2.5px) 0 0 / 14px 14px,
       radial-gradient(circle at 70% 60%, #2a2e35 0 2px, transparent 3px) 0 0 / 11px 11px,
       radial-gradient(ellipse at 50% 55%, #2b3039, #161a20 72%);
   }
-  .chalk { position: absolute; left: 50%; top: 47%; width: min(320px, 82%); height: 32%; transform: translate(-50%, -50%); border: 3px dashed rgba(242, 239, 230, 0.42); border-radius: 50%; }
-  .hero-main { position: absolute; left: 50%; top: 45%; transform: translate(-50%, -55%); width: min(210px, 48vh); height: min(210px, 48vh); }
+  @supports (height: 100svh) { .hero { --hh: clamp(180px, calc(100svh - 400px), 440px); } }
+  .chalk { position: absolute; left: 50%; top: 44%; width: min(320px, 82%); height: calc(var(--ms) * 0.67); transform: translate(-50%, -50%); border: 3px dashed rgba(242, 239, 230, 0.42); border-radius: 50%; }
+  .hero-main { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); width: var(--ms); height: var(--ms); }
   .hero-main img, .hero-side img { display: block; width: 100%; height: 100%; filter: drop-shadow(0 22px 18px rgba(0, 0, 0, 0.55)); }
   .hero-main .mystery { width: 100%; height: 100%; font-size: 4rem; }
   .hero-main.swap { animation: heroin 0.32s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
-  @keyframes heroin { from { opacity: 0; transform: translate(-50%, -55%) scale(0.8); } to { opacity: 1; transform: translate(-50%, -55%); } }
-  .hero-shadow { position: absolute; left: 50%; top: calc(45% + min(105px, 24vh) - 30px); width: 146px; height: 20px; transform: translateX(-50%); border-radius: 50%; background: radial-gradient(ellipse, rgba(0, 0, 0, 0.55), transparent 70%); }
-  .hero-side { position: absolute; top: 45%; width: 104px; height: 104px; transform: translateY(-60%); opacity: 0.55; pointer-events: none; }
-  .hero-side.left { left: -30px; }
-  .hero-side.right { right: -30px; }
+  @keyframes heroin { from { opacity: 0; transform: translate(-50%, -50%) scale(0.8); } to { opacity: 1; transform: translate(-50%, -50%); } }
+  .hero-shadow { position: absolute; left: 50%; top: calc(42% + var(--ms) * 0.5 - 10px); width: calc(var(--ms) * 0.7); height: 20px; transform: translateX(-50%); border-radius: 50%; background: radial-gradient(ellipse, rgba(0, 0, 0, 0.55), transparent 70%); }
+  .hero-side { position: absolute; top: 42%; width: calc(var(--ms) * 0.5); height: calc(var(--ms) * 0.5); transform: translateY(-50%); opacity: 0.55; pointer-events: none; }
+  .hero-side.left { left: calc(var(--ms) * -0.15); }
+  .hero-side.right { right: calc(var(--ms) * -0.15); }
   .arrow {
-    position: absolute; top: 45%; transform: translateY(-75%); width: 44px; height: 44px; border-radius: 50%; border: 0;
+    position: absolute; top: 42%; transform: translateY(-50%); width: 44px; height: 44px; border-radius: 50%; border: 0;
     background: rgba(18, 22, 29, 0.7); display: grid; place-items: center; padding: 0; cursor: pointer; z-index: 2;
   }
   .arrow.left { left: 12px; }
   .arrow.right { right: 12px; }
-  .hero-label { position: absolute; left: 12px; right: 12px; bottom: 14px; display: grid; justify-items: center; gap: 6px; text-align: center; }
+  .hero-label { position: absolute; left: 12px; right: 12px; bottom: 12px; display: grid; justify-items: center; gap: 6px; text-align: center; }
   .hero-name { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px; font: 400 24px/1.1 var(--font-display); }
   .rchip { font: 800 11px/1 var(--font-body); letter-spacing: 0.08em; text-transform: uppercase; padding: 5px 8px; border-radius: 999px; background: var(--line); color: var(--r-common); }
   .rchip.r-uncommon { color: var(--r-uncommon); }
@@ -196,7 +201,7 @@
   .mystery { width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; font: 400 1.5rem var(--font-display); color: var(--muted); background: radial-gradient(circle at 35% 30%, var(--panel2), var(--bg)); }
 
   .bag-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
-  .chips { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
   .chips button {
     flex: none; font: 700 13px/1 var(--font-body); padding: 0 14px; height: 36px; border-radius: 999px;
     border: 1.5px solid #3a414d; background: transparent; cursor: pointer;
@@ -209,13 +214,15 @@
   .discard-mode .card[aria-pressed="false"] { opacity: 0.75; }
   .discard-bar {
     position: sticky; bottom: calc(env(safe-area-inset-bottom, 0px) + 92px); z-index: 5;
-    background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px;
-    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 10px 12px;
+    display: grid; gap: 8px;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
   }
   .discard-info { display: grid; gap: 2px; min-width: 0; }
   .discard-info strong { font-variant-numeric: tabular-nums; }
-  .discard-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .discard-info .note { font-size: 13px; }
+  .discard-actions { display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: 8px; }
+  .discard-actions button { min-width: 0; padding-left: 12px; padding-right: 12px; line-height: 1.15; }
 
   /* Album : une case par coloris, rangées par type de bille. */
   .album-head { display: grid; gap: 8px; }
@@ -257,7 +264,7 @@
   .reveal .card { animation: pop 0.55s cubic-bezier(0.2, 0.9, 0.3, 1.25) both; }
   @keyframes pop { from { opacity: 0; transform: scale(0.6) rotate(-8deg); } to { opacity: 1; transform: none; } }
   @media (prefers-reduced-motion: reduce) { .reveal .card { animation: none; } }
-  .rates-box summary { cursor: pointer; font-weight: 800; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; min-height: 28px; display: flex; align-items: center; }
+  .rates-box summary { cursor: pointer; font-weight: 800; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; min-height: 44px; display: flex; align-items: center; }
   .rates { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 6px 14px; font-size: 0.9rem; margin-top: 8px; }
   .rates span { font-variant-numeric: tabular-nums; }
 
@@ -318,6 +325,7 @@
     color: var(--ink); display: flex; align-items: center; justify-content: center; gap: 6px; padding: 0 13px; cursor: pointer; font-weight: 800; font-size: 13px;
   }
   .hud-quit.confirm { background: #c0392b; border-color: #c0392b; color: #fff; }
+  .hud.confirming .turn-pill { visibility: hidden; }
   .hud-quit:focus-visible { outline: 3px solid var(--focus); }
   .hud-bottom { position: absolute; z-index: 1; left: 16px; right: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 24px); display: grid; gap: 12px; }
   .force { display: flex; align-items: center; gap: 10px; color: var(--ink); transition: opacity 0.2s ease; }
@@ -326,6 +334,20 @@
   .force-track { flex: 1; height: 12px; border-radius: 999px; background: rgba(255, 255, 255, 0.14); overflow: hidden; }
   .force-fill { width: 0; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #4cc47e, var(--gold) 70%, var(--accent)); background-repeat: no-repeat; }
   .force-val { min-width: 3.2em; text-align: right; font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  @media (max-width: 380px) {
+    .hud-top { left: 8px; right: 8px; gap: 4px; }
+    .hud-player { gap: 5px; padding: 4px 6px 4px 4px; }
+    .hud-player.opp { padding: 4px 4px 4px 6px; }
+    .hud-player img { width: 28px; height: 28px; }
+    .hud-txt strong { font-size: 12px; }
+    .hud-txt span { font-size: 10px; }
+    .hud-vs { font-size: 18px; }
+  }
+  @media (max-width: 340px) {
+    .top { padding-left: 12px; padding-right: 12px; gap: 6px; }
+    .view, .home-body { padding-left: 12px; padding-right: 12px; }
+    h1 { font-size: 26px; }
+  }
   .stage .status {
     margin: 0; padding: 12px 16px; border-radius: 16px; background: rgba(29, 35, 45, 0.9); color: var(--ink);
     font-size: 14px; line-height: 1.35; text-align: center;
@@ -477,7 +499,7 @@
         <span class="note" id="discardGain"></span>
       </div>
       <div class="discard-actions">
-        <button type="button" class="ghost" id="selectAllBtn">Tout sélectionner</button>
+        <button type="button" class="ghost" id="selectAllBtn">Tout</button>
         <button type="button" class="ghost" id="clearSelBtn">Effacer</button>
         <button type="button" class="primary" id="discardConfirm">Défausser</button>
       </div>
@@ -506,7 +528,7 @@
       <p class="note">Mesurées sur 8 000 lancers. Le centre ne donne rien ou rembourse ton ticket.</p>
       <div class="rates" id="rates"></div>
     </details>
-    <div class="row"><button type="button" class="ghost" id="testTicketsBtn">Debug : +10 tickets</button></div>
+    <div class="row"><button type="button" class="ghost" id="testTicketsBtn">Debug&nbsp;: +10 tickets</button></div>
   </section>
 </div>
 
@@ -2054,14 +2076,16 @@
     $('quitBtn').classList.remove('confirm');
     $('quitText').hidden = true;
     $('quitText').textContent = '';
+    $('hud').classList.remove('confirming');
   }
   $('quitBtn').addEventListener('click', function () {
     if (!game.active || game.phase === 'over') return;
     const btn = $('quitBtn');
     if (!btn.classList.contains('confirm')) {
       btn.classList.add('confirm');
-      $('quitText').textContent = game.mode === 'bot' ? 'Confirmer : tu perds ta bille' : 'Confirmer : quitter';
+      $('quitText').textContent = game.mode === 'bot' ? 'Confirmer : tu perds ta bille' : 'Confirmer : quitter';
       $('quitText').hidden = false;
+      $('hud').classList.add('confirming');
       resetQuit.t = setTimeout(resetQuit, 3500);
       return;
     }
@@ -2080,7 +2104,7 @@
     setTurnPill(game.turn === 0);
     if (game.turn === 0) {
       game.phase = 'aim';
-      setStatus(first ? "Premier tir : place ta bille, tu ne peux pas encore tiquer. Glisse vers l'arrière puis relâche." : "Glisse vers l'arrière puis relâche. Ta main tremble un peu : choisis ton moment.");
+      setStatus(first ? "Premier tir : place ta bille, tu ne peux pas encore tiquer. Glisse vers l'arrière puis relâche." : "Glisse vers l'arrière puis relâche. Ta main tremble un peu : choisis ton moment.");
       showTurnToast('À toi !', toastDelay);
     } else if (game.mode === 'bot') {
       game.phase = 'aim';
@@ -2869,7 +2893,7 @@
     b1.textContent = 'sa bille et ' + ticketsText(TICKETS_BY_RARITY[r]);
     const b2 = document.createElement('b');
     b2.textContent = 'ta bille';
-    risk.append('Contre une bille ' + RARITIES[r].name.toLowerCase() + '. Gagne : ', b1, '. Perds : ', b2, '.');
+    risk.append('Contre une bille ' + RARITIES[r].name.toLowerCase() + '. Gagne\u00a0: ', b1, '. Perds\u00a0: ', b2, '.');
   }
 
   /* Sac : filtre par rareté, choix de la bille de jeu, et défausse de 3 billes contre 1 ticket (autant de lots qu'on veut). */
@@ -2972,7 +2996,7 @@
     $('discardGain').textContent = gain;
     const confirm = $('discardConfirm');
     confirm.disabled = !lots;
-    confirm.textContent = lots ? 'Défausser ' + lots * DISCARD_COUNT + ' billes, +' + ticketsText(lots) : 'Défausser';
+    confirm.textContent = lots ? 'Défausser\u00a0: +' + ticketsText(lots) : 'Défausser';
     $('clearSelBtn').disabled = !n;
   }
 
@@ -2994,7 +3018,7 @@
     bag.tickets += lots;
     persist();
     bagUi.flash = true;
-    $('bagHint').textContent = gone.size + ' billes défaussées : +' + ticketsText(lots) + ' !';
+    $('bagHint').textContent = gone.size + ' billes défaussées : +' + ticketsText(lots) + ' !';
     setTimeout(function () { bagUi.flash = false; renderDiscardBar(); }, 2500);
     renderAll();
     if (!game.active) showIdle();
@@ -3013,10 +3037,11 @@
     $('dropBtn').disabled = bag.tickets < 1 || full;
     $('ticketInfo').textContent = full
       ? 'Sac plein (' + BAG_MAX + '). Défausse des billes.'
-      : 'Sac : ' + bag.marbles.length + '/' + BAG_MAX;
+      : 'Sac : ' + bag.marbles.length + '/' + BAG_MAX;
     $('gainsEmpty').hidden = $('packReveal').children.length > 0;
     $('freeTitle').textContent = ready ? FREE_TICKETS + ' tickets gratuits' : 'Tickets gratuits';
-    $('packInfo').textContent = ready ? 'À récupérer maintenant' : 'Les suivants dans ' + formatWait(wait);
+    const mins = Math.max(1, Math.ceil(wait / 60000));
+    $('packInfo').textContent = ready ? 'À récupérer maintenant' : 'Les suivants dans ' + (mins >= 60 ? Math.floor(mins / 60) + ' h ' + String(mins % 60).padStart(2, '0') : mins + ' min');
     renderTitle();
   }
 
@@ -3036,7 +3061,7 @@
       chip.className = 'chip r-' + id;
       chip.textContent = RARITIES[id].name + ' ';
       const pct = (odds[id] * 100).toFixed(1).replace('.', ',');
-      row.append(chip, document.createTextNode('≈ ' + pct + ' % : ' + typesOf(id).map((t) => CATALOG[t].name).join(', ')));
+      row.append(chip, document.createTextNode('≈ ' + pct + ' % : ' + typesOf(id).map((t) => CATALOG[t].name).join(', ')));
       box.append(row);
     });
   }
@@ -3153,8 +3178,8 @@
     const found = ALBUM.filter((e) => bag.found[e.key]).length;
     $('albumCount').textContent = found + '/' + total;
     $('albumSummary').textContent = found === total
-      ? 'Album complet : tu as trouvé les ' + total + ' coloris !'
-      : found + ' coloris trouvés sur ' + total + '. Chaque type de bille existe en plusieurs couleurs ou styles : les cases en pointillés restent à trouver.';
+      ? 'Album complet : tu as trouvé les ' + total + ' coloris !'
+      : found + ' coloris trouvés sur ' + total + '. Chaque type de bille existe en plusieurs couleurs ou styles : les cases en pointillés restent à trouver.';
     $('albumBar').style.width = Math.round((found / total) * 100) + '%';
     if ($('view-album').hidden) return;
     const owned = {};
@@ -3536,7 +3561,7 @@
   const TUTO = [
     {
       title: 'Vise comme une pichenette',
-      text: "Pose le doigt n'importe où, glisse vers l'arrière puis relâche : la bille part à l'opposé. Plus tu tires loin, plus c'est fort. Ta main tremble un peu, alors relâche au bon moment.",
+      text: "Pose le doigt n'importe où, glisse vers l'arrière puis relâche : la bille part à l'opposé. Plus tu tires loin, plus c'est fort. Ta main tremble un peu, alors relâche au bon moment.",
       art: '<svg viewBox="0 0 320 150" role="img" aria-label="Glisser vers l\'arrière pour tirer"><rect width="320" height="150" fill="#24292f"/>' +
         '<g fill="#3a4048"><circle cx="40" cy="30" r="3"/><circle cx="260" cy="40" r="2"/><circle cx="200" cy="120" r="3"/><circle cx="90" cy="115" r="2"/></g>' +
         '<g fill="#fff" opacity="0.85"><circle cx="150" cy="75" r="3"/><circle cx="170" cy="75" r="3"/><circle cx="190" cy="75" r="3"/><circle cx="210" cy="75" r="3"/><circle cx="230" cy="75" r="3"/></g>' +
@@ -3546,7 +3571,7 @@
     },
     {
       title: 'Tique pour gagner',
-      text: "Chacun tire à son tour. Le premier tir sert à se placer. Ensuite, touche la bille de l'autre : tu la gagnes, avec des tickets. Si tu rates, c'est à l'autre de jouer.",
+      text: "Chacun tire à son tour. Le premier tir sert à se placer. Ensuite, touche la bille de l'autre : tu la gagnes, avec des tickets. Si tu rates, c'est à l'autre de jouer.",
       art: '<svg viewBox="0 0 320 150" role="img" aria-label="Deux billes qui se touchent"><rect width="320" height="150" fill="#24292f"/>' +
         '<path d="M40 110 Q110 100 140 80" stroke="#9aa6b2" stroke-width="3" fill="none" stroke-dasharray="3 7"/>' +
         '<circle cx="148" cy="78" r="18" fill="#e5553f"/><circle cx="142" cy="72" r="5" fill="#fff" opacity="0.7"/>' +
@@ -3556,7 +3581,7 @@
     },
     {
       title: 'Complète ta collection',
-      text: "Joue tes tickets dans la machine : plus la bille tombe sur les côtés, plus elle est rare. Pour gagner des billes rares, il faut aussi risquer les tiennes.",
+      text: "Joue tes tickets dans la machine : plus la bille tombe sur les côtés, plus elle est rare. Pour gagner des billes rares, il faut aussi risquer les tiennes.",
       art: '<svg viewBox="0 0 320 150" role="img" aria-label="La machine à billes"><rect width="320" height="150" fill="#24292f"/>' +
         (function () {
           let d = '<g fill="#eef1f4">';
