@@ -82,27 +82,27 @@
   /* Accueil : ta bille en grand sur le bitume, dans un cercle tracé à la craie. */
   /* La hauteur du décor s'adapte à l'écran : sur un petit téléphone, le bouton JOUER reste visible sans défiler. */
   .hero {
-    --hh: clamp(180px, calc(100vh - 400px), 440px);
-    --ms: min(210px, calc(var(--hh) * 0.5));
+    --hh: clamp(180px, calc(100vh - 400px), 360px);
+    --ms: min(220px, calc(var(--hh) * 0.56));
     position: relative; height: var(--hh); overflow: hidden;
     background:
       radial-gradient(circle at 30% 20%, #3a3f47 0 1.5px, transparent 2.5px) 0 0 / 14px 14px,
       radial-gradient(circle at 70% 60%, #2a2e35 0 2px, transparent 3px) 0 0 / 11px 11px,
       radial-gradient(ellipse at 50% 55%, #2b3039, #161a20 72%);
   }
-  @supports (height: 100svh) { .hero { --hh: clamp(180px, calc(100svh - 400px), 440px); } }
-  .chalk { position: absolute; left: 50%; top: 44%; width: min(320px, 82%); height: calc(var(--ms) * 0.67); transform: translate(-50%, -50%); border: 3px dashed rgba(242, 239, 230, 0.42); border-radius: 50%; }
-  .hero-main { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); width: var(--ms); height: var(--ms); }
+  @supports (height: 100svh) { .hero { --hh: clamp(180px, calc(100svh - 400px), 360px); } }
+  .chalk { position: absolute; left: 50%; top: 49%; width: min(320px, 82%); height: calc(var(--ms) * 0.67); transform: translate(-50%, -50%); border: 3px dashed rgba(242, 239, 230, 0.42); border-radius: 50%; }
+  .hero-main { position: absolute; left: 50%; top: 46%; transform: translate(-50%, -50%); width: var(--ms); height: var(--ms); }
   .hero-main img, .hero-side img { display: block; width: 100%; height: 100%; filter: drop-shadow(0 22px 18px rgba(0, 0, 0, 0.55)); }
   .hero-main .mystery { width: 100%; height: 100%; font-size: 4rem; }
   .hero-main.swap { animation: heroin 0.32s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
   @keyframes heroin { from { opacity: 0; transform: translate(-50%, -50%) scale(0.8); } to { opacity: 1; transform: translate(-50%, -50%); } }
-  .hero-shadow { position: absolute; left: 50%; top: calc(42% + var(--ms) * 0.5 - 10px); width: calc(var(--ms) * 0.7); height: 20px; transform: translateX(-50%); border-radius: 50%; background: radial-gradient(ellipse, rgba(0, 0, 0, 0.55), transparent 70%); }
-  .hero-side { position: absolute; top: 42%; width: calc(var(--ms) * 0.5); height: calc(var(--ms) * 0.5); transform: translateY(-50%); opacity: 0.55; pointer-events: none; }
+  .hero-shadow { position: absolute; left: 50%; top: calc(46% + var(--ms) * 0.5 - 10px); width: calc(var(--ms) * 0.7); height: 20px; transform: translateX(-50%); border-radius: 50%; background: radial-gradient(ellipse, rgba(0, 0, 0, 0.55), transparent 70%); }
+  .hero-side { position: absolute; top: 46%; width: calc(var(--ms) * 0.5); height: calc(var(--ms) * 0.5); transform: translateY(-50%); opacity: 0.55; pointer-events: none; }
   .hero-side.left { left: calc(var(--ms) * -0.15); }
   .hero-side.right { right: calc(var(--ms) * -0.15); }
   .arrow {
-    position: absolute; top: 42%; transform: translateY(-50%); width: 44px; height: 44px; border-radius: 50%; border: 0;
+    position: absolute; top: 46%; transform: translateY(-50%); width: 44px; height: 44px; border-radius: 50%; border: 0;
     background: rgba(18, 22, 29, 0.7); display: grid; place-items: center; padding: 0; cursor: pointer; z-index: 2;
   }
   .arrow.left { left: 12px; }
@@ -252,7 +252,10 @@
     box-shadow: 0 6px 0 var(--gold-dark), 0 14px 24px rgba(0, 0, 0, 0.35); transition: transform 0.08s ease, box-shadow 0.08s ease;
   }
   .drop-btn:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 2px 0 var(--gold-dark), 0 8px 16px rgba(0, 0, 0, 0.35); }
-  .drop-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .drop-btn:disabled { background: var(--panel2); color: var(--muted); box-shadow: none; cursor: not-allowed; }
+  .drop-btn:disabled .drop-cost { display: none; }
+  .no-tickets { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 18px; background: var(--panel); border: 1.5px solid var(--gold-dark); }
+  .no-tickets .free-text { flex: 1; }
   .drop-main { font: 400 24px/1 var(--font-display); }
   .drop-cost { font: 800 13px var(--font-body); padding: 5px 9px; border-radius: 999px; background: rgba(27, 22, 8, 0.15); }
   .gains-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
@@ -264,6 +267,11 @@
   .reveal .card { animation: pop 0.55s cubic-bezier(0.2, 0.9, 0.3, 1.25) both; }
   @keyframes pop { from { opacity: 0; transform: scale(0.6) rotate(-8deg); } to { opacity: 1; transform: none; } }
   @media (prefers-reduced-motion: reduce) { .reveal .card { animation: none; } }
+  .rates-box summary::-webkit-details-marker { display: none; }
+  .rates-box summary { list-style: none; justify-content: space-between; }
+  .rates-box summary::after { content: '+'; font-size: 20px; color: var(--muted); }
+  .rates-box[open] summary::after { content: '−'; }
+  .rates-box:not([open]) { padding-top: 4px; padding-bottom: 4px; gap: 0; display: block; }
   .rates-box summary { cursor: pointer; font-weight: 800; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; min-height: 44px; display: flex; align-items: center; }
   .rates { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 6px 14px; font-size: 0.9rem; margin-top: 8px; }
   .rates span { font-variant-numeric: tabular-nums; }
@@ -517,7 +525,11 @@
 
   <section class="view" id="view-pack" hidden>
     <div class="machine" id="machine"><canvas id="plinko" aria-label="Machine à billes"></canvas></div>
-    <button type="button" class="drop-btn" id="dropBtn"><span class="drop-main">Lancer une bille</span><span class="drop-cost">1 ticket</span></button>
+    <button type="button" class="drop-btn" id="dropBtn"><span class="drop-main" id="dropLabel">Lancer une bille</span><span class="drop-cost">1 ticket</span></button>
+    <section class="no-tickets" id="noTickets" hidden>
+      <div class="free-text"><strong id="noTicketsTitle"></strong><span id="noTicketsSub"></span></div>
+      <button type="button" class="gold-btn" id="claimBtn2">Récupérer</button>
+    </section>
     <section class="panel" aria-label="Dernières billes gagnées">
       <div class="gains-head"><span class="label">Derniers gains</span><span id="ticketInfo"></span></div>
       <div class="grid gains reveal" id="packReveal"></div>
@@ -1688,13 +1700,21 @@
   thumbCam.position.set(0, 0.45, 1.2);
   thumbCam.lookAt(0, -0.02, 0);
   const thumbCache = new Map();
-  const thumbTarget = new THREE.WebGLRenderTarget(THUMB_RT, THUMB_RT);
-  thumbTarget.texture.encoding = THREE.sRGBEncoding;
-  const thumbPixels = new Uint8Array(THUMB_RT * THUMB_RT * 4);
-  const thumbFull = document.createElement('canvas');
-  thumbFull.width = thumbFull.height = THUMB_RT;
-  const thumbFullCtx = thumbFull.getContext('2d');
-  const thumbImage = thumbFullCtx.createImageData(THUMB_RT, THUMB_RT);
+  /* Les miniatures sont rendues plus grandes puis réduites (le bord reste lisse). La grande bille de l'accueil
+     a sa propre cible, plus fine, car elle est affichée en grand sur des écrans très denses. */
+  const HERO_PX = 640;
+  const HERO_RT = 1024;
+  const thumbTargets = {};
+  function thumbTargetOf(n) {
+    if (thumbTargets[n]) return thumbTargets[n];
+    const target = new THREE.WebGLRenderTarget(n, n);
+    target.texture.encoding = THREE.sRGBEncoding;
+    const full = document.createElement('canvas');
+    full.width = full.height = n;
+    const ctx = full.getContext('2d');
+    thumbTargets[n] = { n: n, target: target, pixels: new Uint8Array(n * n * 4), full: full, ctx: ctx, image: ctx.createImageData(n, n) };
+    return thumbTargets[n];
+  }
   const thumbOut = document.createElement('canvas');
   const thumbOutCtx = thumbOut.getContext('2d');
   const prevClear = new THREE.Color();
@@ -1723,19 +1743,23 @@
     const prevTarget = renderer.getRenderTarget();
     const prevAlpha = renderer.getClearAlpha();
     renderer.getClearColor(prevClear);
-    renderer.setRenderTarget(thumbTarget);
+    const rt = thumbTargetOf(px > THUMB_RT ? HERO_RT : THUMB_RT);
+    const N = rt.n;
+    renderer.setRenderTarget(rt.target);
     renderer.setClearColor(0x000000, 0);
     renderer.clear();
     renderer.render(thumbScene, thumbCam);
-    renderer.readRenderTargetPixels(thumbTarget, 0, 0, THUMB_RT, THUMB_RT, thumbPixels);
+    renderer.readRenderTargetPixels(rt.target, 0, 0, N, N, rt.pixels);
     renderer.setRenderTarget(prevTarget);
     renderer.setClearColor(prevClear, prevAlpha);
-    const row = THUMB_RT * 4;
-    for (let y = 0; y < THUMB_RT; y++) thumbImage.data.set(thumbPixels.subarray((THUMB_RT - 1 - y) * row, (THUMB_RT - y) * row), y * row);
-    thumbFullCtx.putImageData(thumbImage, 0, 0);
+    const row = N * 4;
+    for (let y = 0; y < N; y++) rt.image.data.set(rt.pixels.subarray((N - 1 - y) * row, (N - y) * row), y * row);
+    rt.ctx.putImageData(rt.image, 0, 0);
     thumbOut.width = thumbOut.height = px;
     thumbOutCtx.clearRect(0, 0, px, px);
-    thumbOutCtx.drawImage(thumbFull, 0, 0, px, px);
+    thumbOutCtx.imageSmoothingEnabled = true;
+    thumbOutCtx.imageSmoothingQuality = 'high';
+    thumbOutCtx.drawImage(rt.full, 0, 0, px, px);
     url = thumbOut.toDataURL('image/png');
     thumbCache.set(key, url);
     /* Mémoire bornée : on oublie les miniatures les plus anciennes (elles seront refaites si besoin). */
@@ -2762,7 +2786,7 @@
     img.width = img.height = size;
     img.alt = CATALOG[def.type].name;
     /* Les grandes images (accueil) sont rendues en haute définition. */
-    const px = size > 100 ? THUMB_RT : 160;
+    const px = size > 150 ? HERO_PX : size > 100 ? THUMB_RT : 160;
     const cached = thumbCache.get(def.type + ':' + def.hue + ':' + def.seed + ':' + px);
     if (cached) {
       img.src = cached;
@@ -3035,6 +3059,15 @@
     $('claimBtn').disabled = !ready;
     const full = bag.marbles.length + plinko.balls.length >= BAG_MAX;
     $('dropBtn').disabled = bag.tickets < 1 || full;
+    $('dropLabel').textContent = full ? 'Sac plein' : bag.tickets < 1 ? 'Plus de ticket' : 'Lancer une bille';
+    /* Plus de ticket : on dit tout de suite comment en avoir. */
+    const broke = bag.tickets < 1 && !full && !plinko.balls.length;
+    $('noTickets').hidden = !broke;
+    if (broke) {
+      $('claimBtn2').hidden = !ready;
+      $('noTicketsTitle').textContent = ready ? FREE_TICKETS + ' tickets gratuits t\'attendent' : 'Plus de ticket';
+      $('noTicketsSub').textContent = ready ? 'Récupère-les pour relancer la machine.' : 'Gagne des duels, défausse des billes en trop, ou attends les tickets gratuits.';
+    }
     $('ticketInfo').textContent = full
       ? 'Sac plein (' + BAG_MAX + '). Défausse des billes.'
       : 'Sac : ' + bag.marbles.length + '/' + BAG_MAX;
@@ -3307,6 +3340,7 @@
   });
   renderSoundBtn();
   $('claimBtn').addEventListener('click', claimTickets);
+  $('claimBtn2').addEventListener('click', claimTickets);
   $('discardToggle').addEventListener('click', function () {
     bagUi.discarding = !bagUi.discarding;
     bagUi.picked = [];
