@@ -734,18 +734,100 @@
   /* Échelle : 1 unité = 2,5 cm (une bille de 16 mm a un rayon de 0,32).
      Goudron : enrobé de voirie, bitume noir et gravillons de 2 à 10 mm. Les gros gravillons dépassent et font dévier la bille ;
      ce sont les mêmes cailloux qui sont dessinés et qui agissent sur la physique, au même endroit, donc le terrain s'apprend.
-     Plaque : tampon de voirie rond en fonte, quadrillage anti-dérapant en relief, cadre. */
+     Plaque : tampon de voirie rond en fonte, quadrillage anti-dérapant en relief, disque lisse au centre, cadre.
+     Chaque lieu a ses vrais bords : bordure de trottoir (rebond franc), planches (rebond mou), cadre de fonte,
+     ou pelouse (pas de mur : l'herbe freine net et une bille qui s'y arrête est remise au bord). */
   const G = 60;
   const TARMAC_TILE = 6;
-  const COVER = { r: 9.5, cell: 1.0, ridge: 0.16, depth: 0.15, rimW: 1.1, rimH: 0.3 };
+  const COVER = { r: 9.5, cell: 1.0, ridge: 0.16, depth: 0.15, rimW: 1.1, rimH: 0.3, hub: 2.3 };
   const STONE_CELL = 0.5;
   const STONE_REACH = 0.15;
+  const GRASS_W = 1.6;
+  const GRASS_ROLL = 70;
+  /* Bords de chaque terrain carré : n (z = -HALF), s (z = +HALF), w (x = -HALF), e (x = +HALF). */
+  const BORDERS = {
+    tarmac: { n: 'curb', e: 'curb', s: 'grass', w: 'grass' },
+    terre: { n: 'wood', e: 'wood', w: 'wood', s: 'grass' }
+  };
+
+  /* ---------- Relief ----------
+     Hauteur du sol h(x, z) en unités, faite de formes douces : bosse ou creux (rond), rigole ou fissure (le long d'une ligne).
+     La pente pousse la bille (5/7 de g fois la pente pour une sphère qui roule). Le sol dessiné suit exactement la même hauteur.
+     Zones : la peinture est lisse (ça roule plus loin et sans gravillons), la boue colle, le disque de la plaque est poli. */
+  const RELIEF = {
+    tarmac: {
+      bumps: [{ x: 1.9, z: -1.7, r: 1.25, h: -0.13 }],
+      grooves: [{ pts: [[-6.2, -3.6], [-4.4, -2.5], [-2.6, -2.9], [-0.9, -1.4], [0.1, 0.6], [1.5, 1.9], [2.4, 3.6], [3.1, 6.2]], w: 0.17, h: 0.055 }],
+      zones: [
+        { kind: 'paint', x0: -2.05, x1: -1.6, z0: -6, z1: 6 },
+        { kind: 'paint', x0: -6, x1: -2.05, z0: 2.35, z1: 2.8 }
+      ]
+    },
+    terre: {
+      bumps: [
+        { x: -2.8, z: -3.2, r: 1.9, h: 0.17 },
+        { x: 3.4, z: -3.7, r: 1.5, h: 0.12 },
+        { x: 2.7, z: 3.9, r: 1.7, h: -0.12 },
+        { x: -3.6, z: 4.1, r: 1.4, h: 0.1 },
+        { x: 0.6, z: -0.9, r: 1.5, h: -0.04 }
+      ],
+      grooves: [{ pts: [[-6.6, 2.3], [-4.2, 1.5], [-1.6, 2.1], [0.9, 1.6], [3.2, 0.4], [6.6, -0.7]], w: 0.8, h: 0.2 }],
+      zones: [{ kind: 'mud', cx: 0.6, cz: -0.9, r: 1.35 }]
+    },
+    plate: { bumps: [], grooves: [], zones: [{ kind: 'hub', cx: 0, cz: 0, r: COVER.hub }] }
+  };
+  function segDist2(x, z, a, b) {
+    const dx = b[0] - a[0];
+    const dz = b[1] - a[1];
+    const t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / (dx * dx + dz * dz)));
+    const px = a[0] + t * dx - x;
+    const pz = a[1] + t * dz - z;
+    return px * px + pz * pz;
+  }
+  function reliefOf(name, x, z) {
+    const R0 = RELIEF[name];
+    if (!R0) return 0;
+    let h = 0;
+    for (let i = 0; i < R0.bumps.length; i++) {
+      const b = R0.bumps[i];
+      const d2 = ((x - b.x) * (x - b.x) + (z - b.z) * (z - b.z)) / (b.r * b.r);
+      if (d2 < 1) h += b.h * (1 - d2) * (1 - d2);
+    }
+    for (let i = 0; i < R0.grooves.length; i++) {
+      const g = R0.grooves[i];
+      let d2 = Infinity;
+      for (let k = 0; k + 1 < g.pts.length; k++) d2 = Math.min(d2, segDist2(x, z, g.pts[k], g.pts[k + 1]));
+      const t2 = d2 / (g.w * g.w);
+      if (t2 < 1) h -= g.h * (1 - t2) * (1 - t2);
+    }
+    return h;
+  }
+  const reliefAt = (x, z) => reliefOf(terrain, x, z);
+  function reliefGrad(x, z, out) {
+    const e = 0.03;
+    out.x = (reliefAt(x + e, z) - reliefAt(x - e, z)) / (2 * e);
+    out.z = (reliefAt(x, z + e) - reliefAt(x, z - e)) / (2 * e);
+    return out;
+  }
+  /* Zone sous la bille : 'paint', 'mud', 'hub', 'grass' ou null. */
+  function zoneAt(x, z) {
+    const B = BORDERS[terrain];
+    if (B) {
+      if ((B.s === 'grass' && z > HALF) || (B.n === 'grass' && z < -HALF) || (B.e === 'grass' && x > HALF) || (B.w === 'grass' && x < -HALF)) return 'grass';
+    }
+    const R0 = RELIEF[terrain];
+    for (let i = 0; i < R0.zones.length; i++) {
+      const q = R0.zones[i];
+      if (q.r ? (x - q.cx) * (x - q.cx) + (z - q.cz) * (z - q.cz) < q.r * q.r : x > q.x0 && x < q.x1 && z > q.z0 && z < q.z1) return q.kind;
+    }
+    return null;
+  }
 
   function genStones() {
     const r = rng(20241031);
     const all = [];
     for (let i = 0; i < 1500; i++) {
-      const rad = 0.035 + 0.17 * Math.pow(r(), 2.4);
+      const rad = 0.03 + 0.12 * Math.pow(r(), 2.6);
       const n = 7 + Math.floor(r() * 4);
       const rot = r() * 6.283;
       const poly = [];
@@ -759,8 +841,8 @@
     all.sort((a, b) => a.r - b.r);
     const cells = TARMAC_TILE / STONE_CELL;
     const grid = new Map();
-    all.filter((s) => s.r > 0.09).forEach(function (s) {
-      s.h = 0.2 * s.r;
+    all.filter((s) => s.r > 0.075).forEach(function (s) {
+      s.h = 0.24 * s.r;
       const reach = s.r + STONE_REACH;
       for (let i = Math.floor((s.x - reach) / STONE_CELL); i <= Math.floor((s.x + reach) / STONE_CELL); i++) {
         for (let j = Math.floor((s.z - reach) / STONE_CELL); j <= Math.floor((s.z + reach) / STONE_CELL); j++) {
@@ -802,10 +884,10 @@
 
   function stoneColor(s) {
     const v = s.shade;
-    if (s.tone < 0.6) { const l = 72 + v * 42; return [l, l, l + 3]; }
-    if (s.tone < 0.86) { const l = 46 + v * 24; return [l, l, l + 2]; }
-    if (s.tone < 0.95) return [112 + v * 22, 103 + v * 20, 90 + v * 16];
-    const l = 145 + v * 30; return [l, l - 2, l - 5];
+    if (s.tone < 0.6) { const l = 62 + v * 30; return [l, l, l + 3]; }
+    if (s.tone < 0.86) { const l = 42 + v * 18; return [l, l, l + 2]; }
+    if (s.tone < 0.95) return [92 + v * 18, 85 + v * 16, 75 + v * 12];
+    const l = 118 + v * 24; return [l, l - 2, l - 5];
   }
 
   function drawStones(g, size, fill) {
@@ -854,7 +936,7 @@
       gg.stroke();
     });
     /* Poussière et gravillons fins par-dessus : les cailloux sont à moitié noyés, l'ensemble paraît plus uniforme. */
-    g.fillStyle = 'rgba(40,41,43,0.22)';
+    g.fillStyle = 'rgba(34,35,37,0.38)';
     g.fillRect(0, 0, n, n);
     for (let i = 0; i < 60000; i++) {
       const l = 35 + Math.floor(r() * 90);
@@ -870,22 +952,6 @@
       gr.addColorStop(1, 'rgba(0,0,0,0)');
       g.fillStyle = gr;
       g.fillRect(0, 0, n, n);
-    }
-    g.strokeStyle = 'rgba(6,6,7,0.85)';
-    for (let k = 0; k < 2; k++) {
-      let x = r() * n;
-      let z = r() * n;
-      let a = r() * 6.283;
-      g.lineWidth = 2 + r() * 2;
-      g.beginPath();
-      g.moveTo(x, z);
-      for (let i = 0; i < 70; i++) {
-        a += (r() - 0.5) * 0.9;
-        x += Math.cos(a) * 12;
-        z += Math.sin(a) * 12;
-        g.lineTo(x, z);
-      }
-      g.stroke();
     }
     const map = makeTexture(c);
     const b = document.createElement('canvas');
@@ -917,20 +983,20 @@
     c.width = c.height = n;
     const g = c.getContext('2d');
     const r = rng(91);
-    g.fillStyle = '#1f1e1d';
+    g.fillStyle = '#19191a';
     g.fillRect(0, 0, n, n);
-    for (let i = 0; i < 26; i++) {
+    for (let i = 0; i < 14; i++) {
       const cx = r() * n;
       const cz = r() * n;
       const gr = g.createRadialGradient(cx, cz, 0, cx, cz, 40 + r() * 140);
-      gr.addColorStop(0, 'rgba(' + (80 + r() * 25 | 0) + ',' + (45 + r() * 12 | 0) + ',24,0.3)');
+      gr.addColorStop(0, 'rgba(' + (70 + r() * 20 | 0) + ',' + (40 + r() * 10 | 0) + ',22,0.22)');
       gr.addColorStop(1, 'rgba(90,45,20,0)');
       g.fillStyle = gr;
       g.fillRect(0, 0, n, n);
     }
     for (let i = 0; i < 16000; i++) {
-      const sand = r() < 0.5;
-      const l = sand ? 110 + r() * 50 : 40 + r() * 40;
+      const sand = r() < 0.25;
+      const l = sand ? 95 + r() * 40 : 34 + r() * 30;
       g.fillStyle = sand ? 'rgba(' + (l | 0) + ',' + (l * 0.9 | 0) + ',' + (l * 0.75 | 0) + ',0.7)' : 'rgba(' + (l | 0) + ',' + (l | 0) + ',' + (l | 0) + ',0.7)';
       g.beginPath();
       g.arc(r() * n, r() * n, 0.5 + r() * 1.1, 0, 6.283);
@@ -942,10 +1008,14 @@
   const tarmacTex = tarmacMaps();
   const tarmacMat = new THREE.MeshStandardMaterial({ map: tarmacTex.map, bumpMap: tarmacTex.bump, bumpScale: 0.9, roughness: 0.9, metalness: 0 });
 
-  function groundShape(hole, mat) {
+  function groundShape(hole, mat, square) {
     const s = new THREE.Shape();
     s.moveTo(-40, -40); s.lineTo(40, -40); s.lineTo(40, 40); s.lineTo(-40, 40); s.lineTo(-40, -40);
-    if (hole) {
+    if (square) {
+      const hp = new THREE.Path();
+      hp.moveTo(-square, -square); hp.lineTo(-square, square); hp.lineTo(square, square); hp.lineTo(square, -square); hp.lineTo(-square, -square);
+      s.holes.push(hp);
+    } else if (hole) {
       const hp = new THREE.Path();
       hp.absarc(0, 0, hole, 0, Math.PI * 2, true);
       s.holes.push(hp);
@@ -956,9 +1026,203 @@
     scene.add(m);
     return m;
   }
-  const tarmacFull = groundShape(0);
+  /* Sol de jeu : maillage fin qui suit le relief. Autour, un sol plat. */
+  function fieldMesh(mat, name) {
+    const geo = new THREE.PlaneGeometry(HALF * 2, HALF * 2, 160, 160);
+    const pos = geo.attributes.position;
+    const uv = geo.attributes.uv;
+    /* Les creux sont plus sombres (ombre, poussière tassée), les bosses plus claires (sol sec, usé) : le relief se lit d'un coup d'œil. */
+    const col = new Float32Array(pos.count * 3);
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i);
+      const y = pos.getY(i);
+      const h = reliefOf(name, x, -y);
+      pos.setZ(i, h);
+      uv.setXY(i, x, y);
+      const k = h < 0 ? Math.max(0.45, 1 + h * 4.2) : 1 + h * 1.8;
+      col[i * 3] = col[i * 3 + 1] = col[i * 3 + 2] = k;
+    }
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    geo.computeVertexNormals();
+    const fmat = mat.clone();
+    fmat.vertexColors = true;
+    const m = new THREE.Mesh(geo, fmat);
+    m.rotation.x = -Math.PI / 2;
+    m.receiveShadow = true;
+    m.visible = false;
+    scene.add(m);
+    return m;
+  }
+  const tarmacOuter = groundShape(0, tarmacMat, HALF);
+  const tarmacField = fieldMesh(tarmacMat, 'tarmac');
   const tarmacAround = groundShape(COVER.r + COVER.rimW - 0.05);
   tarmacAround.visible = false;
+
+  /* Marquages posés sur le sol (peinture, fissure, nid-de-poule, boue) : ils épousent le relief. */
+  function decalMat(draw, w, h, opts) {
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    draw(c.getContext('2d'), w, h);
+    return new THREE.MeshStandardMaterial(Object.assign({ map: makeTexture(c), transparent: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, roughness: 0.9 }, opts || {}));
+  }
+  function ribbon(name, pts, width, mat, group, uScale) {
+    const samples = [];
+    for (let k = 0; k + 1 < pts.length; k++) {
+      const a = pts[k];
+      const b = pts[k + 1];
+      const n = Math.max(2, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 0.08));
+      for (let i = 0; i < n; i++) samples.push([a[0] + (b[0] - a[0]) * i / n, a[1] + (b[1] - a[1]) * i / n]);
+    }
+    samples.push(pts[pts.length - 1]);
+    const posA = [];
+    const uvA = [];
+    const idx = [];
+    let len = 0;
+    samples.forEach(function (p, i) {
+      const q = samples[Math.min(i + 1, samples.length - 1)];
+      const o = samples[Math.max(i - 1, 0)];
+      let tx = q[0] - o[0];
+      let tz = q[1] - o[1];
+      const tl = Math.hypot(tx, tz) || 1;
+      tx /= tl; tz /= tl;
+      if (i) len += Math.hypot(p[0] - samples[i - 1][0], p[1] - samples[i - 1][1]);
+      [-1, 1].forEach(function (side) {
+        const x = p[0] - tz * side * width / 2;
+        const z = p[1] + tx * side * width / 2;
+        posA.push(x, reliefOf(name, x, z) + 0.006, z);
+        uvA.push(len / (uScale || 1), side < 0 ? 0 : 1);
+      });
+      if (i + 1 < samples.length) { const j = i * 2; idx.push(j, j + 1, j + 2, j + 1, j + 3, j + 2); }
+    });
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(posA, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvA, 2));
+    geo.setIndex(idx);
+    geo.computeVertexNormals();
+    const m = new THREE.Mesh(geo, mat);
+    m.receiveShadow = true;
+    group.add(m);
+    return m;
+  }
+  function disc(name, cx, cz, r, mat, group) {
+    const posA = [];
+    const uvA = [];
+    const idx = [];
+    const RS = 14;
+    const AS = 48;
+    for (let i = 0; i <= RS; i++) {
+      for (let k = 0; k <= AS; k++) {
+        const d = (i / RS) * r;
+        const a = (k / AS) * Math.PI * 2;
+        const x = cx + Math.cos(a) * d;
+        const z = cz + Math.sin(a) * d;
+        posA.push(x, reliefOf(name, x, z) + 0.006, z);
+        uvA.push(0.5 + Math.cos(a) * d / (2 * r), 0.5 + Math.sin(a) * d / (2 * r));
+        if (i < RS && k < AS) { const j = i * (AS + 1) + k; idx.push(j, j + 1, j + AS + 1, j + 1, j + AS + 2, j + AS + 1); }
+      }
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(posA, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvA, 2));
+    geo.setIndex(idx);
+    geo.computeVertexNormals();
+    const m = new THREE.Mesh(geo, mat);
+    m.receiveShadow = true;
+    group.add(m);
+    return m;
+  }
+  /* Peinture usée : blanc cassé, écaillé par endroits. */
+  const paintMat = decalMat(function (g, w, h) {
+    const r = rng(5);
+    g.fillStyle = 'rgba(226,224,214,0.92)';
+    g.fillRect(0, 3, w, h - 6);
+    g.globalCompositeOperation = 'destination-out';
+    for (let i = 0; i < 900; i++) {
+      g.fillStyle = 'rgba(0,0,0,' + (0.3 + r() * 0.7).toFixed(2) + ')';
+      g.beginPath(); g.arc(r() * w, r() * h, 0.5 + r() * 2.6, 0, 6.283); g.fill();
+    }
+    g.globalCompositeOperation = 'source-over';
+  }, 256, 32, { roughness: 0.55 });
+  paintMat.map.wrapS = THREE.RepeatWrapping;
+  /* Fissure : sillon sombre aux bords effrités. */
+  const crackMat = decalMat(function (g, w, h) {
+    const r = rng(8);
+    const gr = g.createLinearGradient(0, 0, 0, h);
+    gr.addColorStop(0, 'rgba(10,10,10,0)');
+    gr.addColorStop(0.35, 'rgba(8,8,9,0.75)');
+    gr.addColorStop(0.5, 'rgba(3,3,4,0.95)');
+    gr.addColorStop(0.65, 'rgba(8,8,9,0.75)');
+    gr.addColorStop(1, 'rgba(10,10,10,0)');
+    g.fillStyle = gr;
+    g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 260; i++) {
+      g.fillStyle = 'rgba(70,70,72,' + (0.3 + r() * 0.5).toFixed(2) + ')';
+      g.fillRect(r() * w, r() < 0.5 ? r() * h * 0.3 : h - r() * h * 0.3, 1 + r() * 2, 1 + r() * 2);
+    }
+  }, 256, 32);
+  crackMat.map.wrapS = THREE.RepeatWrapping;
+  const potholeMat = decalMat(function (g, w) {
+    const r = rng(9);
+    const gr = g.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2);
+    gr.addColorStop(0, 'rgba(10,10,11,0.7)');
+    gr.addColorStop(0.7, 'rgba(16,16,17,0.55)');
+    gr.addColorStop(0.88, 'rgba(70,70,72,0.55)');
+    gr.addColorStop(1, 'rgba(25,25,26,0)');
+    g.fillStyle = gr;
+    g.fillRect(0, 0, w, w);
+    for (let i = 0; i < 1500; i++) {
+      const a = r() * 6.283;
+      const d = Math.sqrt(r()) * w * 0.42;
+      const l = 60 + r() * 70;
+      g.fillStyle = 'rgba(' + (l | 0) + ',' + (l | 0) + ',' + (l + 2 | 0) + ',0.7)';
+      g.fillRect(w / 2 + Math.cos(a) * d, w / 2 + Math.sin(a) * d, 1 + r() * 2.5, 1 + r() * 2.5);
+    }
+  }, 256, 256);
+
+  /* Pelouse au bord : herbe courte et tassée. */
+  const grassTex = (function () {
+    const n = 512;
+    const c = document.createElement('canvas');
+    c.width = c.height = n;
+    const g = c.getContext('2d');
+    const r = rng(61);
+    g.fillStyle = '#3f6a2c';
+    g.fillRect(0, 0, n, n);
+    for (let i = 0; i < 30; i++) {
+      const gr = g.createRadialGradient(r() * n, r() * n, 0, r() * n, r() * n, 60 + r() * 120);
+      gr.addColorStop(0, r() < 0.5 ? 'rgba(95,130,55,0.25)' : 'rgba(35,60,25,0.25)');
+      gr.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = gr;
+      g.fillRect(0, 0, n, n);
+    }
+    for (let i = 0; i < 14000; i++) {
+      const x = r() * n;
+      const z = r() * n;
+      const l = r();
+      g.strokeStyle = 'rgba(' + (50 + l * 80 | 0) + ',' + (90 + l * 90 | 0) + ',' + (30 + l * 40 | 0) + ',0.8)';
+      g.lineWidth = 1 + r();
+      g.beginPath(); g.moveTo(x, z); g.lineTo(x + (r() - 0.5) * 6, z - 3 - r() * 7); g.stroke();
+    }
+    const t = makeTexture(c);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.repeat.set(1 / 4, 1 / 4);
+    return t;
+  })();
+  const grassMat = new THREE.MeshStandardMaterial({ map: grassTex, roughness: 1, metalness: 0, side: THREE.DoubleSide });
+  function grassSide(side, group) {
+    const big = 40;
+    const geo = {
+      s: [-big, HALF, big, big], n: [-big, -big, big, -HALF], w: [-big, -big, -HALF, big], e: [HALF, -big, big, big]
+    }[side];
+    const sh = new THREE.Shape();
+    sh.moveTo(geo[0], -geo[1]); sh.lineTo(geo[2], -geo[1]); sh.lineTo(geo[2], -geo[3]); sh.lineTo(geo[0], -geo[3]); sh.lineTo(geo[0], -geo[1]);
+    const m = new THREE.Mesh(new THREE.ShapeGeometry(sh), grassMat);
+    m.rotation.x = -Math.PI / 2;
+    m.position.y = side === 's' || side === 'n' ? 0.012 : 0.01;
+    m.receiveShadow = true;
+    group.add(m);
+  }
+
 
   const curbTex = (function () {
     const c = document.createElement('canvas');
@@ -982,13 +1246,12 @@
     return t;
   })();
   const curbMat = new THREE.MeshStandardMaterial({ map: curbTex, roughness: 0.9 });
-  /* Fonte : flancs sombres et rugueux, dessus poli par le passage. */
-  const ironMat = new THREE.MeshStandardMaterial({ color: 0x2b2c2e, roughness: 0.62, metalness: 0.5 });
-  const ironTopMat = new THREE.MeshStandardMaterial({ color: 0x46494c, roughness: 0.5, metalness: 0.45, envMapIntensity: 0.35 });
+  /* Fonte : flancs sombres et rugueux, dessus à peine plus clair, poli par le passage. */
+  const ironMat = new THREE.MeshStandardMaterial({ color: 0x1d1e20, roughness: 0.75, metalness: 0.55, envMapIntensity: 0.15 });
+  const ironTopMat = new THREE.MeshStandardMaterial({ color: 0x232427, roughness: 0.6, metalness: 0.2, envMapIntensity: 0.08 });
   const ironFaces = [ironMat, ironMat, ironTopMat, ironMat, ironMat, ironMat];
   /* Terre battue (cour d'école, parc) : terre tassée, sable, petits cailloux. La bille s'y arrête vite.
-     Au centre, le « pot » : un trou en cuvette, il faut un tir fort pour en ressortir. Bordure en planches. */
-  const POT = { r: 1.3, depth: 0.45 };
+     Une rigole creusée par la pluie traverse le terrain, quelques bosses et creux, une flaque de boue qui colle. */
   const TERRE_TILE = 8;
   function terreMaps() {
     const n = 1024;
@@ -1048,30 +1311,43 @@
   }
   const terreTex = terreMaps();
   const terreMat = new THREE.MeshStandardMaterial({ map: terreTex.map, bumpMap: terreTex.bump, bumpScale: 1.2, roughness: 1, metalness: 0 });
-  const terreGround = groundShape(POT.r, terreMat);
-  terreGround.visible = false;
-  const potDepthAt = (x, z) => { const d2 = (x * x + z * z) / (POT.r * POT.r); return d2 < 1 ? POT.depth * (1 - d2) : 0; };
-  const potMesh = (function () {
-    const geo = new THREE.RingGeometry(0.0001, POT.r, 64, 14);
-    const pos = geo.attributes.position;
-    const uv = geo.attributes.uv;
-    for (let i = 0; i < pos.count; i++) {
-      const x = pos.getX(i);
-      const y = pos.getY(i);
-      pos.setZ(i, -potDepthAt(x, y));
-      uv.setXY(i, x, y);
+  const terreOuter = groundShape(0, terreMat, HALF);
+  terreOuter.visible = false;
+  const terreField = fieldMesh(terreMat, 'terre');
+  const mudMat = decalMat(function (g, w) {
+    const r = rng(12);
+    const gr = g.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2);
+    gr.addColorStop(0, 'rgba(48,32,20,0.92)');
+    gr.addColorStop(0.75, 'rgba(58,40,25,0.75)');
+    gr.addColorStop(1, 'rgba(70,50,32,0)');
+    g.fillStyle = gr;
+    g.fillRect(0, 0, w, w);
+    g.strokeStyle = 'rgba(30,20,12,0.6)';
+    for (let i = 0; i < 40; i++) {
+      const a = r() * 6.283;
+      const d = r() * w * 0.35;
+      g.lineWidth = 1 + r() * 1.5;
+      g.beginPath(); g.moveTo(w / 2 + Math.cos(a) * d, w / 2 + Math.sin(a) * d);
+      g.lineTo(w / 2 + Math.cos(a + 0.4) * (d + 18), w / 2 + Math.sin(a + 0.4) * (d + 18)); g.stroke();
     }
-    geo.computeVertexNormals();
-    /* Le fond du pot est plus sombre (ombre et terre remuée) pour qu'on le repère bien. */
-    const potMat = terreMat.clone();
-    potMat.color.setHex(0x8a7866);
-    const m = new THREE.Mesh(geo, potMat);
-    m.rotation.x = -Math.PI / 2;
-    m.receiveShadow = true;
-    m.visible = false;
-    scene.add(m);
-    return m;
-  })();
+  }, 256, 256, { roughness: 0.45 });
+  const rutMat = decalMat(function (g, w, h) {
+    const r = rng(14);
+    const gr = g.createLinearGradient(0, 0, 0, h);
+    gr.addColorStop(0, 'rgba(60,42,28,0)');
+    gr.addColorStop(0.3, 'rgba(66,46,30,0.45)');
+    gr.addColorStop(0.5, 'rgba(56,38,24,0.6)');
+    gr.addColorStop(0.7, 'rgba(66,46,30,0.45)');
+    gr.addColorStop(1, 'rgba(60,42,28,0)');
+    g.fillStyle = gr;
+    g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 600; i++) {
+      const l = 120 + r() * 60;
+      g.fillStyle = 'rgba(' + (l | 0) + ',' + (l * 0.82 | 0) + ',' + (l * 0.62 | 0) + ',0.55)';
+      g.fillRect(r() * w, h * (0.3 + r() * 0.4), 1 + r() * 2, 1);
+    }
+  }, 256, 64);
+  rutMat.map.wrapS = THREE.RepeatWrapping;
   const woodMat = new THREE.MeshStandardMaterial({ map: (function () {
     const c = document.createElement('canvas');
     c.width = 512; c.height = 64;
@@ -1103,6 +1379,20 @@
   scene.add(tarmacGroup);
   coverGroup.visible = false;
 
+  RELIEF.tarmac.zones.forEach(function (q) {
+    const along = q.x1 - q.x0 > q.z1 - q.z0;
+    const pts = along ? [[q.x0, (q.z0 + q.z1) / 2], [q.x1, (q.z0 + q.z1) / 2]] : [[(q.x0 + q.x1) / 2, q.z0], [(q.x0 + q.x1) / 2, q.z1]];
+    ribbon('tarmac', pts, along ? q.z1 - q.z0 : q.x1 - q.x0, paintMat, tarmacGroup, 1.6);
+  });
+  RELIEF.tarmac.grooves.forEach(function (gv) { ribbon('tarmac', gv.pts, gv.w * 1.7, crackMat, tarmacGroup, 1.6); });
+  RELIEF.tarmac.bumps.forEach(function (b) { disc('tarmac', b.x, b.z, b.r * 0.95, potholeMat, tarmacGroup); });
+  RELIEF.terre.grooves.forEach(function (gv) { ribbon('terre', gv.pts, gv.w * 2.1, rutMat, terreGroup, 3); });
+  RELIEF.terre.zones.forEach(function (q) { disc('terre', q.cx, q.cz, q.r * 1.1, mudMat, terreGroup); });
+  Object.keys(BORDERS).forEach(function (name) {
+    const group = name === 'tarmac' ? tarmacGroup : terreGroup;
+    Object.keys(BORDERS[name]).forEach(function (side) { if (BORDERS[name][side] === 'grass') grassSide(side, group); });
+  });
+
   /* ================= Physique ================= */
   const world = new CANNON.World();
   world.gravity.set(0, -G, 0);
@@ -1111,11 +1401,16 @@
 
   const mGround = new CANNON.Material('ground');
   const mMarble = new CANNON.Material('marble');
-  const mWall = new CANNON.Material('wall');
   const cmGround = new CANNON.ContactMaterial(mMarble, mGround, { friction: 0.5, restitution: 0.05 });
   world.addContactMaterial(cmGround);
   world.addContactMaterial(new CANNON.ContactMaterial(mMarble, mMarble, { friction: 0.1, restitution: 0.75 }));
-  world.addContactMaterial(new CANNON.ContactMaterial(mMarble, mWall, { friction: 0.05, restitution: 0.85 }));
+  /* Chaque bord rebondit à sa façon : béton franc, fonte moyen, bois mou ; le fond de la pelouse ne renvoie presque rien. */
+  const WALL_KINDS = { curb: 0.72, iron: 0.5, wood: 0.42, grass: 0.05 };
+  const wallMats = {};
+  Object.keys(WALL_KINDS).forEach(function (k) {
+    wallMats[k] = new CANNON.Material('wall-' + k);
+    world.addContactMaterial(new CANNON.ContactMaterial(mMarble, wallMats[k], { friction: 0.05, restitution: WALL_KINDS[k] }));
+  });
 
   const groundBody = new CANNON.Body({ mass: 0, material: mGround });
   groundBody.addShape(new CANNON.Plane());
@@ -1135,24 +1430,36 @@
       mesh.receiveShadow = true;
     }
     b.restY = y;
+    b.isWall = !!material && material !== mGround;
     return b;
   }
 
-  /* Goudron : bordures de trottoir en béton (elles descendent sous le sol pour qu'aucune bille ne passe dessous). */
-  const tarmacBodies = [];
-  const edge = HALF + WALL_T / 2;
-  const longSide = HALF * 2 + WALL_T * 2;
-  [[0, -edge, longSide, WALL_T], [0, edge, longSide, WALL_T], [-edge, 0, WALL_T, HALF * 2], [edge, 0, WALL_T, HALF * 2]].forEach(function (w) {
-    const m = new THREE.Mesh(new THREE.BoxGeometry(w[2], WALL_H + 0.5, w[3]), curbMat);
-    tarmacGroup.add(m);
-    /* Le mur physique monte haut (invisible) : aucune bille ne peut passer par-dessus, même en sautant. */
-    tarmacBodies.push(addBox(w[0], 1.25, w[1], w[2], 3.5, w[3], mWall, m));
-    m.position.y = WALL_H / 2 - 0.25;
-    const plank = new THREE.Mesh(new THREE.BoxGeometry(w[2], WALL_H + 0.5, w[3]), woodMat);
-    plank.position.copy(m.position);
-    plank.castShadow = true;
-    plank.receiveShadow = true;
-    terreGroup.add(plank);
+  /* Bords des terrains carrés. Le mur physique monte haut (invisible) : aucune bille ne passe par-dessus.
+     Côté pelouse, le mur est au fond de l'herbe ; la bille y arrive rarement, l'herbe la freine avant. */
+  const sideBodies = { tarmac: [], terre: [] };
+  Object.keys(BORDERS).forEach(function (name) {
+    Object.keys(BORDERS[name]).forEach(function (side) {
+      const kind = BORDERS[name][side];
+      const dist = (kind === 'grass' ? HALF + GRASS_W : HALF) + WALL_T / 2;
+      const len = (HALF + GRASS_W + WALL_T) * 2;
+      const sx = side === 'e' ? 1 : side === 'w' ? -1 : 0;
+      const sz = side === 's' ? 1 : side === 'n' ? -1 : 0;
+      const w = sx ? WALL_T : len;
+      const d = sx ? len : WALL_T;
+      let mesh = null;
+      if (kind !== 'grass') {
+        const L = HALF * 2 + WALL_T * 2;
+        mesh = new THREE.Mesh(new THREE.BoxGeometry(sx ? WALL_T : L, WALL_H + 0.5, sx ? L : WALL_T), kind === 'wood' ? woodMat : curbMat);
+        (name === 'tarmac' ? tarmacGroup : terreGroup).add(mesh);
+      }
+      const body = addBox(sx * dist, 1.25, sz * dist, w, 3.5, d, wallMats[kind], null);
+      if (mesh) {
+        mesh.position.set(sx * dist, WALL_H / 2 - 0.25, sz * dist);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+      }
+      sideBodies[name].push(body);
+    });
   });
 
   /* Plaque : fond des cases, quadrillage en relief coupé par le cercle, cadre rond. */
@@ -1172,13 +1479,56 @@
       coverGroup.add(m);
       coverBodies.push(addBox((x0 + x1) / 2, -H / 2, (z0 + z1) / 2, w, H, d, mGround, m));
     }
+    /* Les nervures s'arrêtent au disque lisse du centre. */
     const n = Math.floor(COVER.r / COVER.cell);
+    const hub = COVER.hub;
     for (let k = -n; k <= n; k++) {
       const c = k * COVER.cell;
       const L = Math.sqrt(Math.max(0, COVER.r * COVER.r - c * c));
       if (L < 0.3) continue;
-      ridge(c - COVER.ridge / 2, c + COVER.ridge / 2, -L, L);
-      ridge(-L, L, c - COVER.ridge / 2, c + COVER.ridge / 2);
+      const Lh = Math.abs(c) < hub ? Math.sqrt(hub * hub - c * c) : 0;
+      const parts = Lh ? [[-L, -Lh], [Lh, L]] : [[-L, L]];
+      parts.forEach(function (pp) {
+        ridge(c - COVER.ridge / 2, c + COVER.ridge / 2, pp[0], pp[1]);
+        ridge(pp[0], pp[1], c - COVER.ridge / 2, c + COVER.ridge / 2);
+      });
+    }
+    /* Disque central : fonte lisse au niveau du dessus des nervures, gravée de cercles. Ça y roule vite. */
+    const hubTex = (function () {
+      const N = 512;
+      const c = document.createElement('canvas');
+      c.width = c.height = N;
+      const g = c.getContext('2d');
+      const r = rng(17);
+      g.fillStyle = '#3a3c40';
+      g.fillRect(0, 0, N, N);
+      for (let i = 0; i < 9000; i++) {
+        const l = 40 + r() * 40;
+        g.fillStyle = 'rgba(' + (l | 0) + ',' + (l | 0) + ',' + (l + 3 | 0) + ',0.5)';
+        g.fillRect(r() * N, r() * N, 1 + r() * 2, 1 + r() * 2);
+      }
+      g.strokeStyle = 'rgba(14,14,15,0.85)';
+      [0.95, 0.72, 0.5].forEach(function (f) { g.lineWidth = 7; g.beginPath(); g.arc(N / 2, N / 2, (N / 2) * f - 6, 0, 6.283); g.stroke(); });
+      for (let k = 0; k < 24; k++) {
+        const a = (k / 24) * 6.283;
+        g.lineWidth = 5;
+        g.beginPath(); g.moveTo(N / 2 + Math.cos(a) * N * 0.26, N / 2 + Math.sin(a) * N * 0.26); g.lineTo(N / 2 + Math.cos(a) * N * 0.35, N / 2 + Math.sin(a) * N * 0.35); g.stroke();
+      }
+      return makeTexture(c);
+    })();
+    const hubTop = new THREE.Mesh(new THREE.CircleGeometry(hub, 96), new THREE.MeshStandardMaterial({ map: hubTex, roughness: 0.42, metalness: 0.6, envMapIntensity: 0.2 }));
+    hubTop.rotation.x = -Math.PI / 2;
+    hubTop.position.y = 0.001;
+    hubTop.receiveShadow = true;
+    coverGroup.add(hubTop);
+    const hubSide = new THREE.Mesh(new THREE.CylinderGeometry(hub, hub, H, 96, 1, true), ironMat);
+    hubSide.position.y = -H / 2;
+    coverGroup.add(hubSide);
+    const strip = 0.25;
+    for (let zz = -hub + strip / 2; zz < hub; zz += strip) {
+      const half = Math.sqrt(Math.max(0, hub * hub - zz * zz));
+      if (half < 0.1) continue;
+      coverBodies.push(addBox(0, -H / 2, zz, half * 2, H, strip, mGround, null));
     }
     const ri = COVER.r;
     const ro = COVER.r + COVER.rimW;
@@ -1194,7 +1544,7 @@
     const segLen = (2 * Math.PI * (ri + 0.3)) / segs + 0.08;
     for (let i = 0; i < segs; i++) {
       const a = (i / segs) * Math.PI * 2;
-      coverBodies.push(addBox(Math.cos(a) * (ri + 0.3), 1.25, Math.sin(a) * (ri + 0.3), 0.6, 3.5, segLen, mWall, null, -a));
+      coverBodies.push(addBox(Math.cos(a) * (ri + 0.3), 1.25, Math.sin(a) * (ri + 0.3), 0.6, 3.5, segLen, wallMats.iron, null, -a));
     }
   })();
 
@@ -1794,8 +2144,10 @@
       m.shadow.visible = m.mesh.visible;
       if (!m.mesh.visible) return;
       const p = m.mesh.position;
-      const floorY = terrain === 'terre' ? p.y - R - potDepthAt(p.x + R * 0.38, p.z - R * 0.38) + potDepthAt(p.x, p.z) : Math.max(p.y - R, groundY());
-      m.shadow.position.set(p.x + R * 0.38, floorY + 0.004, p.z - R * 0.38);
+      const sx = p.x + R * 0.38;
+      const sz = p.z - R * 0.38;
+      const floorY = terrain === 'plate' ? Math.max(p.y - R, groundY()) : reliefAt(sx, sz);
+      m.shadow.position.set(sx, floorY + 0.004, sz);
     });
   }
 
@@ -1806,7 +2158,7 @@
         if (i === 0 && iv > 0.3) { playClink(iv); buzz(20 + Math.min(40, iv * 4)); }
         /* Règle de la cour : le premier tir de la partie sert à se placer, il ne peut pas tiquer. */
         if (game.phase === 'rolling' && game.shotCount > 1) finish(game.turn);
-      } else if (e.body.material === mWall) {
+      } else if (e.body.isWall) {
         if (iv > 0.5) playThud(iv);
       } else if (terrain === 'plate' && e.body !== groundBody) {
         if (iv > 0.6) playClack(iv);
@@ -1830,27 +2182,37 @@
     });
     groundBody.position.y = groundY();
     const terre = name === 'terre';
-    tarmacFull.visible = name === 'tarmac';
+    const tarmac = name === 'tarmac';
+    tarmacOuter.visible = tarmac;
+    tarmacField.visible = tarmac;
     tarmacAround.visible = plate;
     coverGroup.visible = plate;
-    tarmacGroup.visible = name === 'tarmac';
-    terreGround.visible = terre;
-    potMesh.visible = terre;
+    tarmacGroup.visible = tarmac;
+    terreOuter.visible = terre;
+    terreField.visible = terre;
     terreGroup.visible = terre;
-    coverBodies.forEach(function (b) { b.position.y = plate ? b.restY : -50; b.aabbNeedsUpdate = true; });
-    tarmacBodies.forEach(function (b) { b.position.y = plate ? -50 : b.restY; b.aabbNeedsUpdate = true; });
+    const on = (list, yes) => list.forEach(function (b) { b.position.y = yes ? b.restY : -50; b.aabbNeedsUpdate = true; });
+    on(coverBodies, plate);
+    on(sideBodies.tarmac, tarmac);
+    on(sideBodies.terre, terre);
   }
 
   const snapToCell = (v) => (Math.floor(v / COVER.cell) + 0.5) * COVER.cell;
 
   function randomSpots() {
     if (terrain !== 'plate') {
-      /* Départ de part et d'autre du terrain, à environ 20 à 27 cm l'un de l'autre. */
-      const zA = (Math.random() * 2 - 1) * 3.5;
-      return [
-        { x: -(4 + Math.random() * 1.2), z: zA },
-        { x: 4 + Math.random() * 1.2, z: -zA * (0.3 + Math.random() * 0.7) }
-      ];
+      /* Départ de part et d'autre du terrain, à environ 20 à 27 cm l'un de l'autre, sur un sol à plat (pas dans un creux ni la boue).
+         Le côté est tiré au sort : selon la partie, on joue dans un sens ou dans l'autre. */
+      const flat = (s) => Math.abs(reliefAt(s.x, s.z)) < 0.015 && !zoneAt(s.x, s.z);
+      for (let tries = 0; ; tries++) {
+        const zA = (Math.random() * 2 - 1) * 3.5;
+        let spots = [
+          { x: -(4 + Math.random() * 1.2), z: zA },
+          { x: 4 + Math.random() * 1.2, z: -zA * (0.3 + Math.random() * 0.7) }
+        ];
+        if (Math.random() < 0.5) spots = spots.map((s) => ({ x: s.z, z: s.x }));
+        if (spots.every(flat) || tries > 60) return spots;
+      }
     }
     /* Sur la plaque : deux cases au hasard dans le disque, à bonne distance. */
     for (;;) {
@@ -1880,36 +2242,49 @@
   }
 
   /* Résistance au roulement : la bille perd de la vitesse régulièrement puis s'arrête net (pas de longue traîne).
+     La pente du relief la pousse ; une bille arrêtée sur une pente plus raide que ce que le sol retient se remet à rouler.
      Sur le goudron, les gros gravillons font dévier la bille, toujours au même endroit, plus un léger aléa de sable. */
   const stoneOut = { x: 0, z: 0 };
+  const gradOut = { x: 0, z: 0 };
+  const SLOPE_K = G * 5 / 7;
+  const ZONE_ROLL = { paint: 0.55, mud: 2.6, hub: 0.7 };
   function terrainEffects(m) {
     const v = m.body.velocity;
     const w = m.body.angularVelocity;
-    const speed = Math.sqrt(v.x * v.x + v.z * v.z);
-    if (speed < 0.15 && Math.abs(v.y) < 0.3) {
+    const p = m.body.position;
+    const t = TERRAINS[terrain];
+    const grounded = Math.abs(v.y) < 1.5;
+    const zone = zoneAt(p.x, p.z);
+    const roll = zone === 'grass' ? GRASS_ROLL : t.roll * (ZONE_ROLL[zone] || 1);
+    let slope = 0;
+    if (terrain !== 'plate' && grounded) {
+      reliefGrad(p.x, p.z, gradOut);
+      slope = SLOPE_K * Math.hypot(gradOut.x, gradOut.z);
+    }
+    let speed = Math.sqrt(v.x * v.x + v.z * v.z);
+    if (speed < 0.15 && Math.abs(v.y) < 0.3 && slope <= roll) {
       v.set(0, v.y, 0);
       w.set(0, 0, 0);
       return;
     }
-    const t = TERRAINS[terrain];
-    if (Math.abs(v.y) < 1.5 && speed > 1e-6) {
-      const f = Math.max(0, speed - t.roll * STEP) / speed;
+    if (slope > 0) {
+      v.x -= SLOPE_K * gradOut.x * STEP;
+      v.z -= SLOPE_K * gradOut.z * STEP;
+      speed = Math.sqrt(v.x * v.x + v.z * v.z);
+    }
+    if (grounded && speed > 1e-6) {
+      const f = Math.max(0, speed - roll * STEP) / speed;
       v.x *= f; v.z *= f;
       w.x *= f; w.y *= f; w.z *= f;
     }
+    if (zone === 'grass' || zone === 'paint' || zone === 'hub') return;
     if (terrain === 'terre') {
-      const p = m.body.position;
-      if (potDepthAt(p.x, p.z) > 0) {
-        const k = (G * 2 * POT.depth) / (POT.r * POT.r);
-        v.x -= k * p.x * STEP;
-        v.z -= k * p.z * STEP;
-      }
       const kk = Math.min(speed / 6, 1) * t.sand;
       v.x += (Math.random() - 0.5) * kk;
       v.z += (Math.random() - 0.5) * kk;
     }
     if (terrain === 'tarmac') {
-      stoneAccel(m.body.position.x, m.body.position.z, stoneOut);
+      stoneAccel(p.x, p.z, stoneOut);
       v.x += stoneOut.x * STEP;
       v.z += stoneOut.z * STEP;
       const k = Math.min(speed / 6, 1) * t.sand;
@@ -1917,6 +2292,10 @@
       v.z += (Math.random() - 0.5) * k;
     }
   }
+
+  /* Limite de chaque côté : le mur, ou le fond de la pelouse. */
+  /* Un peu au-delà de la face du mur : c'est le mur physique qui fait le rebond, ceci ne rattrape qu'une bille échappée. */
+  const sideLimit = (side) => (BORDERS[terrain] && BORDERS[terrain][side] === 'grass' ? HALF + GRASS_W : HALF) - R + 0.12;
 
   /* Sécurité : une bille qui saute par-dessus le mur bas est renvoyée dans le terrain. */
   function keepInside(m) {
@@ -1932,12 +2311,31 @@
       p.x = nx * lim;
       p.z = nz * lim;
       const vn = v.x * nx + v.z * nz;
-      if (vn > 0) { v.x -= 1.6 * vn * nx; v.z -= 1.6 * vn * nz; }
+      if (vn > 0) { v.x -= 1.5 * vn * nx; v.z -= 1.5 * vn * nz; }
       return;
     }
-    const lim = HALF - R;
-    if (Math.abs(p.x) > lim) { p.x = Math.sign(p.x) * lim; if (v.x * p.x > 0) v.x *= -0.6; }
-    if (Math.abs(p.z) > lim) { p.z = Math.sign(p.z) * lim; if (v.z * p.z > 0) v.z *= -0.6; }
+    if (p.x > sideLimit('e')) { p.x = sideLimit('e'); if (v.x > 0) v.x *= -0.5; }
+    if (p.x < -sideLimit('w')) { p.x = -sideLimit('w'); if (v.x < 0) v.x *= -0.5; }
+    if (p.z > sideLimit('s')) { p.z = sideLimit('s'); if (v.z > 0) v.z *= -0.5; }
+    if (p.z < -sideLimit('n')) { p.z = -sideLimit('n'); if (v.z < 0) v.z *= -0.5; }
+  }
+
+  /* Règle de la pelouse : une bille arrêtée dans l'herbe est remise au bord du terrain, là où elle est sortie. */
+  function returnFromGrass() {
+    let moved = false;
+    marbles.forEach(function (m) {
+      if (!m.mesh.visible || terrain === 'plate') return;
+      const p = m.body.position;
+      const lim = HALF - R - 0.05;
+      const nx = Math.max(-lim, Math.min(lim, p.x));
+      const nz = Math.max(-lim, Math.min(lim, p.z));
+      if (nx !== p.x || nz !== p.z) {
+        p.x = nx;
+        p.z = nz;
+        moved = true;
+      }
+    });
+    return moved;
   }
 
   const allStill = () => marbles.every((m) => Math.abs(m.body.velocity.x) + Math.abs(m.body.velocity.z) < 0.01);
@@ -2072,7 +2470,7 @@
     $('vsOpp').replaceChildren(thumbCanvas(opts.opp, 84));
     $('vsOppName').textContent = opts.oppName;
     $('vsTerrain').textContent = TERRAIN_NAMES[opts.terrain];
-    $('vsInfo').textContent = 'Le gagnant prend la bille de l\'autre et ' + ticketsText(prize) + '.';
+    $('vsInfo').textContent = TERRAIN_HINTS[opts.terrain] + ' Le gagnant prend la bille de l\'autre et ' + ticketsText(prize) + '.';
     const el = $('vsIntro');
     el.hidden = false;
     el.style.animation = 'none';
@@ -2172,7 +2570,7 @@
       const dist = Math.sqrt(dx * dx + dz * dz) * (game.shotCount === 1 ? 0.5 : 1);
       const angle = Math.atan2(dz, dx) + (Math.random() - 0.5) * (game.shotCount === 1 ? 0.6 : 0.22);
       let v;
-      if (terrain === 'plate' || (terrain === 'terre' && potDepthAt(me.x, me.z) > 0)) {
+      if (terrain === 'plate' || reliefAt(me.x, me.z) < -0.04 || zoneAt(me.x, me.z) === 'mud') {
         v = V_MAX * (0.65 + Math.random() * 0.35);
       } else {
         /* Distance d'arrêt avec décélération constante : d = v² / 2a, donc v = racine(2·a·d). */
@@ -2187,9 +2585,11 @@
       m.body.velocity.set(0, 0, 0);
       m.body.angularVelocity.set(0, 0, 0);
     });
+    const backFromGrass = returnFromGrass();
     if (game.net && game.turn === 0) sendNet('settle', { p: netState() });
     game.turn = 1 - game.turn;
     beginTurn();
+    if (backFromGrass) setStatus("Une bille s'est arrêtée dans l'herbe\u00a0: elle revient au bord. " + $('status').textContent);
   }
 
   function finish(winner) {
@@ -2836,6 +3236,11 @@
   /* Accueil : ta bille de jeu en grand, à faire défiler avec les flèches. Le terrain est tiré au sort au lancement. */
   const TERRAIN_NAMES = { tarmac: 'Goudron', plate: "Plaque d'égout", terre: 'Terre' };
   const TERRAIN_LIST = Object.keys(TERRAIN_NAMES);
+  const TERRAIN_HINTS = {
+    tarmac: 'La peinture glisse, la fissure dévie, l\'herbe freine net.',
+    plate: 'Les cases retiennent la bille, le disque du centre roule vite.',
+    terre: 'La rigole attrape les billes lentes, la boue colle.'
+  };
   const sortedBag = () => bag.marbles.slice().sort(byRarity);
 
   function chooseStake(def) {
@@ -3758,7 +4163,7 @@
       if (game.targets) {
         marbles.forEach(function (m, i) {
           const tp = game.targets[i].p;
-          m.mesh.position.lerp(tmpTarget.set(tp.x, tp.y - (terrain === 'terre' ? potDepthAt(tp.x, tp.z) : 0), tp.z), 0.35);
+          m.mesh.position.lerp(tmpTarget.set(tp.x, tp.y + (terrain === 'plate' ? 0 : reliefAt(tp.x, tp.z)), tp.z), 0.35);
           m.mesh.quaternion.slerp(game.targets[i].q, 0.35);
         });
       }
@@ -3766,7 +4171,7 @@
     } else {
       marbles.forEach(function (m) {
         m.mesh.position.copy(m.body.position);
-        if (terrain === 'terre') m.mesh.position.y -= potDepthAt(m.mesh.position.x, m.mesh.position.z);
+        if (terrain !== 'plate') m.mesh.position.y += reliefAt(m.mesh.position.x, m.mesh.position.z);
         m.mesh.quaternion.copy(m.body.quaternion);
       });
     }
